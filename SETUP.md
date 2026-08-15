@@ -13,9 +13,30 @@
 ---
 
 ## 1) GitHub repo + GitHub Pages (โฮสต์เว็บ ฟรี)
-1. สร้าง repo ใหม่ (เช่น `makmai-tennis-v2`) แล้วอัปโหลดไฟล์ในโฟลเดอร์นี้ (ยกเว้นโฟลเดอร์ `worker/` จะ deploy แยก)
-2. Settings > Pages > Build and deployment > Source = `Deploy from a branch` > เลือก `main` / root > Save
-3. รอสักครู่ จะได้ URL เช่น `https://<user>.github.io/makmai-tennis-v2/`
+
+> ผู้ช่วยได้เตรียม git repo ในเครื่องไว้ให้แล้ว (commit แรกพร้อม push) — ติดตั้ง `gh` (GitHub CLI) ให้ด้วย
+> เหลือแค่ล็อกอินบัญชี GitHub ของคุณเอง (ต้องทำเองเพราะเป็นการยืนยันตัวตนผ่านเบราว์เซอร์)
+
+**วิธี A — ใช้ GitHub CLI (เร็วสุด):**
+```bash
+cd "/Users/camornpi/Documents/ซ่อมสนามเทนนิส/makmai-tennis-v2"
+gh auth login   # เลือก GitHub.com > HTTPS > Login with a web browser แล้วทำตามที่หน้าจอบอก
+gh repo create makmai-tennis-v2 --public --source=. --remote=origin --push
+```
+- คำสั่งสุดท้ายจะสร้าง repo ชื่อ `makmai-tennis-v2` แบบ public ให้อัตโนมัติ และ push commit ที่เตรียมไว้ขึ้นไปเลย
+- ต้องเป็น **public** เพราะ GitHub Pages ฟรีใช้ได้กับ repo public เท่านั้น (บัญชี Free)
+
+**วิธี B — สร้างเองผ่านเว็บ (ถ้าไม่อยากใช้ CLI):**
+1. https://github.com/new > ตั้งชื่อ `makmai-tennis-v2` > Public > Create repository
+2. รันคำสั่งนี้ในโฟลเดอร์ `makmai-tennis-v2`:
+   ```bash
+   git remote add origin https://github.com/<your-username>/makmai-tennis-v2.git
+   git push -u origin main
+   ```
+
+**หลังจาก push สำเร็จ (ทั้ง 2 วิธี):**
+3. บนหน้า repo > Settings > Pages > Build and deployment > Source = `Deploy from a branch` > เลือก `main` / root > Save
+4. รอสักครู่ จะได้ URL เช่น `https://<user>.github.io/makmai-tennis-v2/`
    - **จด URL นี้ไว้** = `GitHub Pages URL` (ใช้เป็น LINE callback + Worker CORS)
 
 ## 2) Firebase project ใหม่ (Spark ฟรี ไม่ผูกบัตร)
