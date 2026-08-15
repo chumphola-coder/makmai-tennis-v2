@@ -7,5 +7,6 @@ compatibility_date = "2024-11-01"
 #   npx wrangler secret put FIREBASE_SA_PRIVATE_KEY
 [vars]
 LINE_CHANNEL_ID = "REPLACE_WITH_LINE_LOGIN_CHANNEL_ID"
-FIREBASE_SA_EMAIL = "REPLACE_WITH_service_account_client_email"
-ALLOWED_ORIGIN = "https://REPLACE_WITH_your_github_pages_origin"
+FIREBASE_SA_EMAIL = "firebase-adminsdk-fbsvc@makmai-tennis-v2.iam.gserviceaccount.com"
+ALLOWED_ORIGIN = "https://chumphola-coder.github.io"
+
