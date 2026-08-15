@@ -1,0 +1,84 @@
+rules_version = '2';
+
+// Security model for makmai-tennis-v2
+// - Everyone signed in (via LINE custom token) can READ the schedule.
+// - Only APPROVED residents can create bookings, and only for themselves.
+// - Residents can edit/delete only their OWN bookings, and can never "confirm" (that is admin-only).
+// - Admins (docs in /admins) can do everything.
+// These rules run on Google's servers and cannot be bypassed from the browser console.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function myResident() {
+      return get(/databases/$(database)/documents/residents/$(request.auth.uid)).data;
+    }
+
+    function isApprovedResident() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/residents/$(request.auth.uid))
+        && myResident().status == 'approved';
+    }
+
+    // Fields a resident is NOT allowed to set or change on a booking.
+    function protectedUnchanged() {
+      return request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.get('scannedAmount', null) == resource.data.get('scannedAmount', null)
+        && request.resource.data.get('confirmedBy', null) == resource.data.get('confirmedBy', null)
+        && request.resource.data.status != 'confirmed';
+    }
+
+    match /residents/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.status == 'pending';
+      // A pending user may fix their own house selection but cannot self-approve.
+      allow update: if isAdmin()
+        || (request.auth.uid == uid
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'pending');
+      allow delete: if isAdmin()
+        || (request.auth.uid == uid && resource.data.status == 'pending');
+    }
+
+    match /admins/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      // Bootstrap the first admin manually in the Firebase console (console bypasses rules).
+      allow write: if isAdmin();
+    }
+
+    match /bookings/{id} {
+      allow read: if isSignedIn();
+
+      allow create: if isAdmin()
+        || (isApprovedResident() && request.resource.data.get('isCustomerProfile', false) == true)
+        || (isApprovedResident()
+            && request.resource.data.ownerUid == request.auth.uid
+            && request.resource.data.status == 'pending'
+            && request.resource.data.get('scannedAmount', 0) == 0
+            && !('confirmedBy' in request.resource.data));
+
+      allow update: if isAdmin()
+        || (isApprovedResident() && resource.data.get('isCustomerProfile', false) == true
+            && request.resource.data.get('isCustomerProfile', false) == true)
+        || (isApprovedResident()
+            && resource.data.ownerUid == request.auth.uid
+            && protectedUnchanged());
+
+      allow delete: if isAdmin()
+        || (isApprovedResident()
+            && resource.data.ownerUid == request.auth.uid
+            && resource.data.status != 'confirmed');
+    }
+  }
+}

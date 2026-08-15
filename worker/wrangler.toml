@@ -1,0 +1,11 @@
+name = "makmai-line-auth"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Non-secret vars can live here. Secrets (LINE secret + Firebase key) must be set with:
+#   npx wrangler secret put LINE_CHANNEL_SECRET
+#   npx wrangler secret put FIREBASE_SA_PRIVATE_KEY
+[vars]
+LINE_CHANNEL_ID = "REPLACE_WITH_LINE_LOGIN_CHANNEL_ID"
+FIREBASE_SA_EMAIL = "REPLACE_WITH_service_account_client_email"
+ALLOWED_ORIGIN = "https://REPLACE_WITH_your_github_pages_origin"
