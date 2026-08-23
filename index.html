@@ -1543,6 +1543,17 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 window.APP.role = 'pending';
                 window.APP.house = house;
                 window.showAlert("ส่งขออนุมัติแล้ว รอผู้ดูแลยืนยัน", "success");
+
+                // Best-effort: ping admins on LINE. Never block registration if this fails.
+                try {
+                    const cfg = window.APP_CONFIG || {};
+                    const idToken = await user.getIdToken();
+                    await fetch(cfg.authWorkerUrl.replace(/\/$/, '') + '/notify-admins', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+                        body: JSON.stringify({}),
+                    });
+                } catch (e) { console.warn('notify-admins failed', e); }
             } catch (e) { console.error(e); window.showAlert("ลงทะเบียนไม่สำเร็จ", "danger"); }
         };
 
@@ -1562,11 +1573,15 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         };
 
         window.openAdminResidents = async function() {
-            const snap = await getDocs(query(collection(db, 'residents'), where('status', '==', 'pending')));
-            const rows = [];
-            snap.forEach(d => rows.push(d.data()));
-            const list = rows.length
-                ? rows.map(r => `
+            const pendingSnap = await getDocs(query(collection(db, 'residents'), where('status', '==', 'pending')));
+            const approvedSnap = await getDocs(query(collection(db, 'residents'), where('status', '==', 'approved')));
+            const pending = []; approvedSnap.forEach(d => {}); 
+            pendingSnap.forEach(d => pending.push(d.data()));
+            const approved = [];
+            approvedSnap.forEach(d => approved.push(d.data()));
+
+            const pendingList = pending.length
+                ? pending.map(r => `
                     <div class="flex items-center justify-between gap-2 border-b border-slate-100 py-2">
                         <div class="text-sm"><b>${r.houseNumber}</b> — ${r.ownerName || ''}<div class="text-[11px] text-slate-400">${r.displayName || ''} · ${r.uid}</div></div>
                         <div class="flex gap-2">
@@ -1575,18 +1590,41 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                         </div>
                     </div>`).join('')
                 : '<p class="text-sm text-slate-400 py-4 text-center">ไม่มีคำขอที่รออนุมัติ</p>';
+
+            const approvedList = approved.length
+                ? approved.map(r => `
+                    <div class="flex items-center justify-between gap-2 border-b border-slate-100 py-2">
+                        <div class="text-sm"><b>${r.houseNumber}</b> — ${r.ownerName || ''}<div class="text-[11px] text-slate-400">${r.displayName || ''}</div></div>
+                        <button onclick="window.promoteToAdmin('${r.uid}')" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold">⬆️ ตั้งเป็นแอดมิน</button>
+                    </div>`).join('')
+                : '<p class="text-sm text-slate-400 py-4 text-center">ยังไม่มีลูกบ้านที่อนุมัติแล้ว</p>';
+
             const modal = document.createElement('div');
             modal.id = 'adminResidentsModal';
             modal.className = 'fixed inset-0 bg-slate-900/80 z-[130] flex items-center justify-center p-4';
             modal.innerHTML = `
                 <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[80vh] overflow-y-auto">
                     <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-xl font-bold text-slate-800">คำขอลงทะเบียน (รออนุมัติ)</h2>
+                        <h2 class="text-xl font-bold text-slate-800">จัดการลูกบ้าน</h2>
                         <button onclick="document.getElementById('adminResidentsModal').remove()" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
                     </div>
-                    ${list}
+                    <h3 class="text-sm font-bold text-slate-500 mb-2">รออนุมัติ</h3>
+                    ${pendingList}
+                    <h3 class="text-sm font-bold text-slate-500 mt-4 mb-2">อนุมัติแล้ว</h3>
+                    ${approvedList}
                 </div>`;
             document.body.appendChild(modal);
+        };
+
+        window.promoteToAdmin = async function(uid) {
+            const confirmed = await window.customConfirm("ตั้งคนนี้เป็นแอดมิน (มีสิทธิ์เต็มทุกอย่าง)? ยืนยันหรือไม่?", "ตั้งแอดมิน", "warning");
+            if (!confirmed) return;
+            try {
+                await setDoc(doc(db, 'admins', uid), { role: 'admin', promotedAt: Date.now() });
+                document.getElementById('adminResidentsModal')?.remove();
+                window.openAdminResidents();
+                window.showAlert("ตั้งเป็นแอดมินแล้ว", "success");
+            } catch (e) { console.error(e); window.showAlert("ตั้งแอดมินไม่สำเร็จ", "danger"); }
         };
 
         window.approveResident = async function(uid) {

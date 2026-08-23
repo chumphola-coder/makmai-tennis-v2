@@ -128,6 +128,36 @@ async function isAdminUid(uid, projectId, accessToken) {
   return res.status === 200;
 }
 
+async function getResidentDoc(uid, projectId, accessToken) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/residents/${encodeURIComponent(uid)}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (res.status !== 200) return null;
+  const doc = await res.json();
+  const f = doc.fields || {};
+  return {
+    houseNumber: f.houseNumber?.stringValue || '',
+    ownerName: f.ownerName?.stringValue || '',
+    displayName: f.displayName?.stringValue || '',
+  };
+}
+
+async function listAdminUids(projectId, accessToken) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/admins?pageSize=100`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) return [];
+  const json = await res.json();
+  return (json.documents || []).map((d) => d.name.split('/').pop());
+}
+
+async function pushLineMessage(lineUserId, text, channelAccessToken) {
+  const res = await fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${channelAccessToken}` },
+    body: JSON.stringify({ to: lineUserId, messages: [{ type: 'text', text }] }),
+  });
+  return res.ok;
+}
+
 async function handleAuth(request, env, cors) {
   const { code, redirectUri } = await request.json();
   if (!code || !redirectUri) return jsonResponse({ error: 'missing_code_or_redirect' }, 400, cors);
@@ -193,20 +223,52 @@ async function handleNotify(request, env, cors) {
     return jsonResponse({ error: 'messaging_not_configured' }, 501, cors);
   }
 
-  const pushRes = await fetch('https://api.line.me/v2/bot/message/push', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify({ to: lineUserId, messages: [{ type: 'text', text: message }] }),
-  });
-  if (!pushRes.ok) {
-    const detail = await pushRes.text();
-    return jsonResponse({ error: 'line_push_failed', detail }, 502, cors);
-  }
+  const ok = await pushLineMessage(lineUserId, message, env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN);
+  if (!ok) return jsonResponse({ error: 'line_push_failed' }, 502, cors);
 
   return jsonResponse({ ok: true }, 200, cors);
+}
+
+// Called right after a resident submits their house-registration request.
+// Any signed-in caller may trigger this (they aren't admin yet), but the message text is
+// built entirely server-side from their OWN resident doc — never from client input — so
+// this can't be abused to send arbitrary spam text to admins.
+async function handleNotifyAdmins(request, env, cors) {
+  const authHeader = request.headers.get('Authorization') || '';
+  const idToken = authHeader.replace(/^Bearer\s+/i, '');
+  if (!idToken) return jsonResponse({ error: 'missing_id_token' }, 401, cors);
+
+  const projectId = env.FIREBASE_PROJECT_ID;
+  let callerUid;
+  try {
+    callerUid = await verifyFirebaseIdToken(idToken, projectId);
+  } catch (e) {
+    return jsonResponse({ error: 'invalid_id_token', detail: String(e) }, 401, cors);
+  }
+
+  if (!env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN) {
+    return jsonResponse({ error: 'messaging_not_configured' }, 501, cors);
+  }
+
+  const accessToken = await getGoogleAccessToken(
+    'https://www.googleapis.com/auth/datastore',
+    env.FIREBASE_SA_EMAIL,
+    env.FIREBASE_SA_PRIVATE_KEY
+  );
+
+  const resident = await getResidentDoc(callerUid, projectId, accessToken);
+  if (!resident) return jsonResponse({ error: 'resident_not_found' }, 404, cors);
+
+  const text = `🔔 มีคำขอลงทะเบียนใหม่\nบ้านเลขที่ ${resident.houseNumber} (${resident.ownerName || resident.displayName || 'ไม่ทราบชื่อ'})\nกรุณาเข้าเว็บเพื่ออนุมัติ`;
+  const adminUids = await listAdminUids(projectId, accessToken);
+  let sent = 0;
+  for (const uid of adminUids) {
+    if (!uid.startsWith('line:')) continue;
+    const ok = await pushLineMessage(uid.slice('line:'.length), text, env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN);
+    if (ok) sent++;
+  }
+
+  return jsonResponse({ ok: true, notified: sent }, 200, cors);
 }
 
 export default {
@@ -221,6 +283,7 @@ export default {
 
     try {
       if (pathname === '/notify') return await handleNotify(request, env, cors);
+      if (pathname === '/notify-admins') return await handleNotifyAdmins(request, env, cors);
       return await handleAuth(request, env, cors);
     } catch (err) {
       return jsonResponse({ error: 'server_error', detail: String(err) }, 500, cors);
