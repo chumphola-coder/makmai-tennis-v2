@@ -8,7 +8,7 @@ compatibility_date = "2024-11-01"
 #   npx wrangler secret put FIREBASE_SA_PRIVATE_KEY
 #   npx wrangler secret put LINE_MESSAGING_CHANNEL_ACCESS_TOKEN
 [vars]
-LINE_CHANNEL_ID = "2011215698"
+LINE_CHANNEL_ID = "2011217015"
 FIREBASE_SA_EMAIL = "firebase-adminsdk-fbsvc@makmai-tennis-v2.iam.gserviceaccount.com"
 FIREBASE_PROJECT_ID = "makmai-tennis-v2"
 ALLOWED_ORIGIN = "https://chumphola-coder.github.io"
