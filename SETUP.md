@@ -80,6 +80,11 @@ gh repo create makmai-tennis-v2 --public --source=. --remote=origin --push
    - จะได้ URL เช่น `https://makmai-line-auth.<subdomain>.workers.dev`
    - **จด URL นี้** ไปใส่ `config.js` ช่อง `authWorkerUrl`
 
+> **หมายเหตุเรื่อง login:** ถ้า `npx wrangler login` เปิดหน้าเบราว์เซอร์แล้วปุ่ม "Authorize" กดไม่ได้/หาไม่เจอ (เจอบั๊กนี้ระหว่างทำจริง) ให้ใช้วิธีนี้แทน:
+> 1. สร้าง API Token ที่ https://dash.cloudflare.com/profile/api-tokens > Create Token > เทมเพลต "Edit Cloudflare Workers" > Account = บัญชีคุณ, Zone = All zones > Continue > Create Token > คัดลอก token
+> 2. รัน `export CLOUDFLARE_API_TOKEN=<token>` ในเทอร์มินัลเดียวกับที่จะรันคำสั่ง `wrangler` ต่อ (ค่านี้จะหายไปถ้าเปิดเทอร์มินัลใหม่ ต้อง export ใหม่ทุกครั้ง)
+> 3. ยืนยันด้วย `npx wrangler whoami`
+
 ## 5) กรอก config.js ให้ครบ
 เปิด `config.js` แล้วแทนที่ทุก `REPLACE_...`:
 - `firebase` = 6 ค่าจากข้อ 2.3
@@ -97,6 +102,32 @@ gh repo create makmai-tennis-v2 --public --source=. --remote=origin --push
 3. สร้าง collection `admins` > Add document > Document ID = `line:...` (uid เดียวกัน) > ใส่ฟิลด์ `role: "admin"` > Save
 4. ทำซ้ำสำหรับ admin 2–3 คน
 5. ให้ admin refresh เว็บ จะเห็นสิทธิ์ admin
+
+## 8) LINE Official Account + Messaging API (สำหรับแจ้งเตือนอัตโนมัติเมื่อ admin ยืนยันการชำระ)
+> ส่วนนี้แยกจาก "LINE Login channel" ในข้อ 3 — ต้องสร้างเพิ่มอีกชิ้นหนึ่ง เพื่อให้โปรแกรม "ส่งข้อความ" หา LINE ของลูกบ้านได้ (ข้อ 3 ใช้แค่ "login" เท่านั้น ส่งข้อความเองไม่ได้)
+
+1. ไปที่ https://developers.line.biz/console (บัญชี LINE เดียวกับข้อ 3 ก็ได้ หรือ Provider เดียวกัน)
+2. ในหน้า Provider เดิม (จากข้อ 3.2) > Create a new channel > เลือก **"Messaging API"**
+3. ตั้งชื่อ เช่น "หมู่บ้านแมกไม้ - แจ้งเตือนจองสนาม" > สร้าง channel
+4. ในหน้า channel ที่สร้างใหม่ > แท็บ **Messaging API** > เลื่อนลงไปที่ **Channel access token** > กด **Issue** เพื่อออก token (long-lived) > คัดลอกเก็บไว้
+5. **สำคัญ — ผูก OA เข้ากับ LINE Login channel เดิม (ข้อ 3)** เพื่อให้ user ID ตอน login กับตอนส่งข้อความเป็นคนเดียวกัน:
+   - กลับไปที่ channel **LINE Login** (จากข้อ 3) > แท็บ "LINE Login" > หา **"Linked OA"** (หรือ "OA to be linked") > เลือก Official Account ที่เพิ่งสร้างในข้อ 8.3 > Update
+6. ตั้งค่าฝั่ง OA ให้ผู้ใช้ "เพิ่มเพื่อน" ได้ (จำเป็น เพราะ LINE ส่งข้อความหาเฉพาะคนที่เป็นเพื่อนกับ OA แล้ว):
+   - แท็บ **Messaging API** > เปิด **Auto-reply messages / Greeting messages** ตามต้องการ (ไม่บังคับ)
+   - เอา QR Code ของ OA (อยู่ในแท็บ Messaging API เช่นกัน) ไปแปะประกาศให้ลูกบ้านสแกนเพิ่มเพื่อนก่อนใช้งาน
+7. ใส่ secret ลงใน Cloudflare Worker:
+   ```bash
+   cd worker
+   npx wrangler secret put LINE_MESSAGING_CHANNEL_ACCESS_TOKEN
+   ```
+   วาง token จากข้อ 8.4 แล้ว Enter
+8. Deploy Worker อีกครั้งให้ endpoint `/notify` ใช้งานได้:
+   ```bash
+   npx wrangler deploy
+   ```
+
+**หมายเหตุ:** ถ้าข้ามขั้นตอนนี้ไปก่อน ระบบยังใช้งานได้ปกติทุกอย่าง (จอง/ยืนยัน/ใบเสร็จ) แค่ปุ่ม "✅ ยืนยันการชำระ" จะไม่ส่ง LINE แจ้งเตือนเท่านั้น (จะเห็น error `messaging_not_configured` เงียบๆ ใน console ไม่กระทบผู้ใช้)
+
 
 ---
 
