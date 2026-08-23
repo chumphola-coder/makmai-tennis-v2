@@ -12,7 +12,7 @@ window.APP_CONFIG = {
   },
 
   // LINE Login channel (LINE Developers console > your Login channel)
-  lineChannelId: "REPLACE_LINE_LOGIN_CHANNEL_ID",
+  lineChannelId: "2011215698",
 
   // The exact page URL registered as the LINE callback (must match GitHub Pages URL).
   // Leave empty to auto-use the current page origin + path.
