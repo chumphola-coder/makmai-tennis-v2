@@ -1,15 +1,28 @@
-// Cloudflare Worker: exchange a LINE Login authorization code for a Firebase custom token.
-// Flow: frontend sends { code, redirectUri } -> we exchange with LINE, verify the id_token,
-// then mint a Firebase custom token (uid = "line:<lineUserId>") signed with the service account key.
+// Cloudflare Worker for makmai-tennis-v2.
+//
+// Route "/" or "/auth" (POST): exchange a LINE Login authorization code for a Firebase
+//   custom token. Frontend sends { code, redirectUri } -> we exchange with LINE, verify
+//   the id_token, then mint a Firebase custom token (uid = "line:<lineUserId>").
+//
+// Route "/notify" (POST): send a LINE push message to a resident when admin confirms a
+//   booking's payment. Requires the caller to present a valid Firebase ID token for an
+//   account listed in the /admins collection — verified server-side so this can't be
+//   abused to spam arbitrary LINE users from the browser console.
+
+import { importX509, jwtVerify } from 'jose';
 
 function corsHeaders(origin, allowed) {
   const allowOrigin = allowed === '*' || allowed === origin ? (allowed === '*' ? '*' : origin) : allowed;
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
   };
+}
+
+function jsonResponse(body, status, cors) {
+  return new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 }
 
 function b64url(bytes) {
@@ -34,20 +47,9 @@ function pemToArrayBuffer(pem) {
   return buf.buffer;
 }
 
-async function mintFirebaseToken(uid, saEmail, saPrivateKey, extraClaims) {
-  const now = Math.floor(Date.now() / 1000);
+async function signServiceAccountJWT(claims, saPrivateKey) {
   const header = { alg: 'RS256', typ: 'JWT' };
-  const payload = {
-    iss: saEmail,
-    sub: saEmail,
-    aud: 'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit',
-    iat: now,
-    exp: now + 3600,
-    uid,
-  };
-  if (extraClaims && Object.keys(extraClaims).length) payload.claims = extraClaims;
-
-  const signingInput = `${b64urlFromString(JSON.stringify(header))}.${b64urlFromString(JSON.stringify(payload))}`;
+  const signingInput = `${b64urlFromString(JSON.stringify(header))}.${b64urlFromString(JSON.stringify(claims))}`;
   const key = await crypto.subtle.importKey(
     'pkcs8',
     pemToArrayBuffer(saPrivateKey),
@@ -59,86 +61,169 @@ async function mintFirebaseToken(uid, saEmail, saPrivateKey, extraClaims) {
   return `${signingInput}.${b64url(sig)}`;
 }
 
+async function mintFirebaseToken(uid, saEmail, saPrivateKey, extraClaims) {
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: saEmail,
+    sub: saEmail,
+    aud: 'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit',
+    iat: now,
+    exp: now + 3600,
+    uid,
+  };
+  if (extraClaims && Object.keys(extraClaims).length) payload.claims = extraClaims;
+  return signServiceAccountJWT(payload, saPrivateKey);
+}
+
+// Exchange the service account's identity for a short-lived Google OAuth2 access token,
+// used to call the Firestore REST API (to check the caller is a real admin).
+async function getGoogleAccessToken(scope, saEmail, saPrivateKey) {
+  const now = Math.floor(Date.now() / 1000);
+  const assertion = await signServiceAccountJWT(
+    {
+      iss: saEmail,
+      scope,
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+    },
+    saPrivateKey
+  );
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+  const json = await res.json();
+  if (!res.ok || !json.access_token) throw new Error('google_oauth_failed: ' + JSON.stringify(json));
+  return json.access_token;
+}
+
+// Verify a Firebase ID token (signature + issuer + audience + expiry) using Google's
+// public certs, and return the verified uid (payload.sub).
+async function verifyFirebaseIdToken(idToken, projectId) {
+  const parts = idToken.split('.');
+  if (parts.length !== 3) throw new Error('malformed_id_token');
+  const header = JSON.parse(atob(parts[0].replace(/-/g, '+').replace(/_/g, '/')));
+
+  const certsRes = await fetch('https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com');
+  const certs = await certsRes.json();
+  const pem = certs[header.kid];
+  if (!pem) throw new Error('unknown_kid');
+
+  const publicKey = await importX509(pem, 'RS256');
+  const { payload } = await jwtVerify(idToken, publicKey, {
+    issuer: `https://securetoken.google.com/${projectId}`,
+    audience: projectId,
+  });
+  return payload.sub;
+}
+
+async function isAdminUid(uid, projectId, accessToken) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/admins/${encodeURIComponent(uid)}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  return res.status === 200;
+}
+
+async function handleAuth(request, env, cors) {
+  const { code, redirectUri } = await request.json();
+  if (!code || !redirectUri) return jsonResponse({ error: 'missing_code_or_redirect' }, 400, cors);
+
+  // 1) Exchange authorization code for LINE tokens.
+  const tokenRes = await fetch('https://api.line.me/oauth2/v2.1/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+      client_id: env.LINE_CHANNEL_ID,
+      client_secret: env.LINE_CHANNEL_SECRET,
+    }),
+  });
+  const tokenJson = await tokenRes.json();
+  if (!tokenRes.ok || !tokenJson.id_token) return jsonResponse({ error: 'line_token_exchange_failed', detail: tokenJson }, 401, cors);
+
+  // 2) Verify id_token with LINE and read the profile.
+  const verifyRes = await fetch('https://api.line.me/oauth2/v2.1/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ id_token: tokenJson.id_token, client_id: env.LINE_CHANNEL_ID }),
+  });
+  const profile = await verifyRes.json();
+  if (!verifyRes.ok || !profile.sub) return jsonResponse({ error: 'line_verify_failed', detail: profile }, 401, cors);
+
+  // 3) Mint a Firebase custom token bound to the LINE user id.
+  const uid = `line:${profile.sub}`;
+  const firebaseToken = await mintFirebaseToken(uid, env.FIREBASE_SA_EMAIL, env.FIREBASE_SA_PRIVATE_KEY, { provider: 'line' });
+
+  return jsonResponse({ firebaseToken, uid, displayName: profile.name || '', picture: profile.picture || '' }, 200, cors);
+}
+
+async function handleNotify(request, env, cors) {
+  const authHeader = request.headers.get('Authorization') || '';
+  const idToken = authHeader.replace(/^Bearer\s+/i, '');
+  if (!idToken) return jsonResponse({ error: 'missing_id_token' }, 401, cors);
+
+  const projectId = env.FIREBASE_PROJECT_ID;
+  let callerUid;
+  try {
+    callerUid = await verifyFirebaseIdToken(idToken, projectId);
+  } catch (e) {
+    return jsonResponse({ error: 'invalid_id_token', detail: String(e) }, 401, cors);
+  }
+
+  const accessToken = await getGoogleAccessToken(
+    'https://www.googleapis.com/auth/datastore',
+    env.FIREBASE_SA_EMAIL,
+    env.FIREBASE_SA_PRIVATE_KEY
+  );
+  const admin = await isAdminUid(callerUid, projectId, accessToken);
+  if (!admin) return jsonResponse({ error: 'not_admin' }, 403, cors);
+
+  const { targetUid, message } = await request.json();
+  if (!targetUid || !message) return jsonResponse({ error: 'missing_target_or_message' }, 400, cors);
+  if (!targetUid.startsWith('line:')) return jsonResponse({ error: 'target_not_a_line_user' }, 400, cors);
+  const lineUserId = targetUid.slice('line:'.length);
+
+  if (!env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN) {
+    return jsonResponse({ error: 'messaging_not_configured' }, 501, cors);
+  }
+
+  const pushRes = await fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify({ to: lineUserId, messages: [{ type: 'text', text: message }] }),
+  });
+  if (!pushRes.ok) {
+    const detail = await pushRes.text();
+    return jsonResponse({ error: 'line_push_failed', detail }, 502, cors);
+  }
+
+  return jsonResponse({ ok: true }, 200, cors);
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
     const allowed = env.ALLOWED_ORIGIN || '*';
     const cors = corsHeaders(origin, allowed);
+    const { pathname } = new URL(request.url);
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-    if (request.method !== 'POST') {
-      return new Response(JSON.stringify({ error: 'method_not_allowed' }), {
-        status: 405,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      });
-    }
+    if (request.method !== 'POST') return jsonResponse({ error: 'method_not_allowed' }, 405, cors);
 
     try {
-      const { code, redirectUri } = await request.json();
-      if (!code || !redirectUri) {
-        return new Response(JSON.stringify({ error: 'missing_code_or_redirect' }), {
-          status: 400,
-          headers: { ...cors, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // 1) Exchange authorization code for LINE tokens.
-      const tokenRes = await fetch('https://api.line.me/oauth2/v2.1/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: redirectUri,
-          client_id: env.LINE_CHANNEL_ID,
-          client_secret: env.LINE_CHANNEL_SECRET,
-        }),
-      });
-      const tokenJson = await tokenRes.json();
-      if (!tokenRes.ok || !tokenJson.id_token) {
-        return new Response(JSON.stringify({ error: 'line_token_exchange_failed', detail: tokenJson }), {
-          status: 401,
-          headers: { ...cors, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // 2) Verify id_token with LINE and read the profile.
-      const verifyRes = await fetch('https://api.line.me/oauth2/v2.1/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ id_token: tokenJson.id_token, client_id: env.LINE_CHANNEL_ID }),
-      });
-      const profile = await verifyRes.json();
-      if (!verifyRes.ok || !profile.sub) {
-        return new Response(JSON.stringify({ error: 'line_verify_failed', detail: profile }), {
-          status: 401,
-          headers: { ...cors, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // 3) Mint a Firebase custom token bound to the LINE user id.
-      const uid = `line:${profile.sub}`;
-      const firebaseToken = await mintFirebaseToken(
-        uid,
-        env.FIREBASE_SA_EMAIL,
-        env.FIREBASE_SA_PRIVATE_KEY,
-        { provider: 'line' }
-      );
-
-      return new Response(
-        JSON.stringify({
-          firebaseToken,
-          uid,
-          displayName: profile.name || '',
-          picture: profile.picture || '',
-        }),
-        { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
-      );
+      if (pathname === '/notify') return await handleNotify(request, env, cors);
+      return await handleAuth(request, env, cors);
     } catch (err) {
-      return new Response(JSON.stringify({ error: 'server_error', detail: String(err) }), {
-        status: 500,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'server_error', detail: String(err) }, 500, cors);
     }
   },
 };
