@@ -1501,30 +1501,33 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         // --- FIRST-LOGIN REGISTRATION: pick house number ---
         window.openRegisterModal = function() {
             if (document.getElementById('registerModal')) return;
-            const houses = Object.keys(window.houseOwnerDB).sort((a, b) => {
-                const na = parseInt((a.split('/')[1] || '0'), 10), nb = parseInt((b.split('/')[1] || '0'), 10);
-                return na - nb;
-            });
-            const opts = houses.map(h => `<option value="${h}">${h} — ${window.houseOwnerDB[h]}</option>`).join('');
             const modal = document.createElement('div');
             modal.id = 'registerModal';
             modal.className = 'fixed inset-0 bg-slate-900/80 z-[130] flex items-center justify-center p-4';
             modal.innerHTML = `
                 <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
                     <h2 class="text-xl font-bold text-slate-800 mb-1">ลงทะเบียนบ้านของคุณ</h2>
-                    <p class="text-sm text-slate-500 mb-4">เลือกเลขที่บ้านของคุณ ระบบจะส่งให้ผู้ดูแลอนุมัติก่อนเริ่มจอง</p>
+                    <p class="text-sm text-slate-500 mb-4">กรอกเลขที่บ้านของคุณ ระบบจะส่งให้ผู้ดูแลอนุมัติก่อนเริ่มจอง</p>
                     <label class="text-sm font-bold text-slate-600">เลขที่บ้าน</label>
-                    <select id="regHouse" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 mb-4 outline-none focus:ring-2 focus:ring-blue-500">${opts}</select>
-                    <div class="flex gap-3">
+                    <input type="text" id="regHouse" placeholder="เช่น 125/1" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key === 'Enter') window.submitRegister()">
+                    <p id="regHouseError" class="text-xs text-red-500 mt-1 mb-3 hidden">ไม่พบเลขที่บ้านนี้ในระบบ กรุณาตรวจสอบอีกครั้ง</p>
+                    <div class="flex gap-3 mt-3">
                         <button onclick="window.submitRegister()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg">ส่งขออนุมัติ</button>
                         <button onclick="window.toggleLogin()" class="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold">ออก</button>
                     </div>
                 </div>`;
             document.body.appendChild(modal);
+            setTimeout(() => document.getElementById('regHouse')?.focus(), 100);
         };
 
         window.submitRegister = async function() {
-            const house = document.getElementById('regHouse').value;
+            const house = document.getElementById('regHouse').value.trim();
+            const errEl = document.getElementById('regHouseError');
+            if (!house || !window.houseOwnerDB[house]) {
+                if (errEl) errEl.classList.remove('hidden');
+                return;
+            }
+            if (errEl) errEl.classList.add('hidden');
             const user = window.APP.user;
             if (!user) return;
             try {
