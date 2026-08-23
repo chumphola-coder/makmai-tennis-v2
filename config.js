@@ -19,5 +19,5 @@ window.APP_CONFIG = {
   lineRedirectUri: "https://chumphola-coder.github.io/makmai-tennis-v2/",
 
   // Deployed Cloudflare Worker URL (e.g. https://makmai-line-auth.<subdomain>.workers.dev)
-  authWorkerUrl: "REPLACE_https://your-worker.workers.dev",
+  authWorkerUrl: "https://makmai-line-auth.chumphola.workers.dev",
 };
