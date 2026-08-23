@@ -1424,12 +1424,12 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                     body: JSON.stringify({ code, redirectUri }),
                 });
                 const data = await res.json();
-                if (!data.firebaseToken) throw new Error(data.error || 'no_token');
+                if (!data.firebaseToken) throw new Error((data.error || 'no_token') + (data.detail ? (': ' + JSON.stringify(data.detail)) : ''));
                 if (data.displayName) sessionStorage.setItem('line_display', data.displayName);
                 await signInWithCustomToken(auth, data.firebaseToken);
             } catch (e) {
                 console.error(e);
-                window.showAlert("เข้าสู่ระบบ LINE ไม่สำเร็จ", "danger");
+                window.showAlert("เข้าสู่ระบบ LINE ไม่สำเร็จ: " + (e && e.message ? e.message : e), "danger");
             }
             history.replaceState({}, '', location.pathname);
         };
