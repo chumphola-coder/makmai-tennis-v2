@@ -596,8 +596,17 @@
         const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
         const originalDocTitle = document.title;
 
+        // House-number -> owner-name directory now lives in Firestore (settings/houseOwners)
+        // instead of being hardcoded here, so residents' names aren't exposed in public page source.
         window.houseOwnerDB = {};
-        const rawOwnerCSV = `125/1,สิทธิชัย เรืองศิรินุสรณ์
+        window.loadHouseOwnerDB = async function() {
+            try {
+                const snap = await getDoc(doc(db, 'settings', 'houseOwners'));
+                if (snap.exists()) window.houseOwnerDB = snap.data().list || {};
+            } catch (e) { console.error('loadHouseOwnerDB failed', e); }
+        };
+        /* removed: previously hardcoded CSV of ~450 house numbers + owner names, migrated to Firestore
+        const rawOwnerCSV_REMOVED = `125/1,สิทธิชัย เรืองศิรินุสรณ์
 125/2,วัฒน์ชัย มิ่งบรรเจิดสุข
 125/3,ประวิทย์ ชวตานนท์
 125/4,จิรัญญา อัสนี
@@ -1048,15 +1057,7 @@
 125/449,คุณพงศ์ภัทร อะสีติรัตน์
 125/450,คุณณัฐฐณัณ พิมทะโนทัย
 125/451,คุณคุณธรรม  ประสิทธิ์รัฐสินธุ์`;
-
-        rawOwnerCSV.trim().split('\n').forEach(line => {
-            const parts = line.includes('\t') ? line.split('\t') : line.split(',');
-            if (parts.length >= 2) {
-                const addr = parts[0].trim().replace('125/', '');
-                const name = parts[1].trim();
-                if (addr) window.houseOwnerDB[addr] = name;
-            }
-        });
+        */
 
         // --- 1. GLOBAL UTILITIES ---
         window.getThailandTimeParts = function() {
@@ -1575,6 +1576,9 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         window.openAdminResidents = async function() {
             const pendingSnap = await getDocs(query(collection(db, 'residents'), where('status', '==', 'pending')));
             const approvedSnap = await getDocs(query(collection(db, 'residents'), where('status', '==', 'approved')));
+            const adminsSnap = await getDocs(collection(db, 'admins'));
+            const adminUids = new Set();
+            adminsSnap.forEach(d => adminUids.add(d.id));
             const pending = []; approvedSnap.forEach(d => {}); 
             pendingSnap.forEach(d => pending.push(d.data()));
             const approved = [];
@@ -1595,7 +1599,9 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 ? approved.map(r => `
                     <div class="flex items-center justify-between gap-2 border-b border-slate-100 py-2">
                         <div class="text-sm"><b>${r.houseNumber}</b> — ${r.ownerName || ''}<div class="text-[11px] text-slate-400">${r.displayName || ''}</div></div>
-                        <button onclick="window.promoteToAdmin('${r.uid}')" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold">⬆️ ตั้งเป็นแอดมิน</button>
+                        ${adminUids.has(r.uid)
+                            ? '<span class="px-3 py-1.5 bg-slate-100 text-slate-400 rounded-lg text-xs font-bold">แอดมินอยู่แล้ว</span>'
+                            : `<button onclick="window.promoteToAdmin('${r.uid}')" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold">⬆️ ตั้งเป็นแอดมิน</button>`}
                     </div>`).join('')
                 : '<p class="text-sm text-slate-400 py-4 text-center">ยังไม่มีลูกบ้านที่อนุมัติแล้ว</p>';
 
