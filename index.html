@@ -1546,6 +1546,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             else if (window.APP.role === 'pending') window.showAlert("บัญชีของคุณรอผู้ดูแลอนุมัติ", "warning");
 
             window.startBookingsSnapshot();
+            if (window.APP.role === 'admin') setTimeout(() => window.checkAutoBackup(), 2000);
         };
 
         // --- FIRST-LOGIN REGISTRATION: pick house number ---
@@ -2387,15 +2388,24 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             if (banner) banner.classList.add('hidden');
         };
 
-        window.checkAutoBackup = function() {
+        window.checkAutoBackup = async function() {
             if (!window.adminMode) return;
+            // Only auto-download on a desktop/computer browser, so the backup file always
+            // lands in one predictable place instead of scattering across phones/tablets.
+            const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+            if (isMobile) return;
+
             const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000;
-            const lastBackup = safeStorage.getItem('makmai_last_auto_backup');
-            if (!lastBackup || (Date.now() - parseInt(lastBackup)) > NINETY_DAYS) {
-                window.backupData();
-                safeStorage.setItem('makmai_last_auto_backup', Date.now().toString());
-                window.showAlert("💾 สำรองข้อมูลอัตโนมัติแล้ว (ทุก 90 วัน)", "success");
-            }
+            try {
+                const metaRef = doc(db, 'settings', 'backupMeta');
+                const metaSnap = await getDoc(metaRef);
+                const lastBackup = metaSnap.exists() ? metaSnap.data().lastBackupAt : null;
+                if (!lastBackup || (Date.now() - lastBackup) > NINETY_DAYS) {
+                    window.backupData();
+                    await setDoc(metaRef, { lastBackupAt: Date.now() });
+                    window.showAlert("💾 สำรองข้อมูลอัตโนมัติแล้ว (ทุก 90 วัน)", "success");
+                }
+            } catch (e) { console.error('checkAutoBackup failed', e); }
         };
 
         window.checkAutoMaintenance = function() {

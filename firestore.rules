@@ -57,6 +57,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // House-owner directory (registration lookup) + misc app settings (e.g. last backup time).
+    match /settings/{doc} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     // Locked customerName/phoneNumber shared by every LINE account tied to one house
     // (a house can have several residents logging in with different LINE accounts).
     // First approved resident to book sets it; only admin can change it afterwards.
