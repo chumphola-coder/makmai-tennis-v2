@@ -114,18 +114,20 @@
 
             <div class="flex flex-1 justify-center md:justify-end gap-2 flex-wrap items-center w-full">
                 <div id="mainActionButtons" class="flex gap-2 flex-wrap hidden justify-center md:justify-end w-full md:w-auto">
-                    <button onclick="window.openExportModal()" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 flex items-center gap-2 transition-all shadow-lg shadow-green-200">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>
-                        📊 Excel
-                    </button>
-                    <button onclick="window.printWeeklySchedule()" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 flex items-center gap-2 transition-all shadow-lg shadow-emerald-200">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        📄 พิมพ์ตาราง
-                    </button>
-                    <button onclick="window.openBackupModal()" class="px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-bold hover:bg-amber-600 flex items-center gap-2 transition-all shadow-lg shadow-amber-200">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
-                        จัดการข้อมูล
-                    </button>
+                    <div id="adminOnlyButtons" class="flex gap-2 flex-wrap hidden">
+                        <button onclick="window.openExportModal()" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 flex items-center gap-2 transition-all shadow-lg shadow-green-200">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>
+                            📊 Excel
+                        </button>
+                        <button onclick="window.printWeeklySchedule()" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 flex items-center gap-2 transition-all shadow-lg shadow-emerald-200">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            📄 พิมพ์ตาราง
+                        </button>
+                        <button onclick="window.openBackupModal()" class="px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-bold hover:bg-amber-600 flex items-center gap-2 transition-all shadow-lg shadow-amber-200">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                            จัดการข้อมูล
+                        </button>
+                    </div>
                     <button onclick="window.openReportModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 flex items-center gap-2 transition-all shadow-lg shadow-indigo-200">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         รายงาน
@@ -1708,6 +1710,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             const logo = document.getElementById('logoContainer');
             const btnCurrentWeek = document.getElementById('btnCurrentWeek');
             const slipNote = document.getElementById('multipleSlipNote');
+            const adminOnlyBtns = document.getElementById('adminOnlyButtons');
             
             const today = window.getThailandDate(), curWS = window.getStartOfWeek(window.getWeekString(today)), nextWE = new Date(curWS); nextWE.setDate(nextWE.getDate() + 13);
             const minS = `${curWS.getFullYear()}-${String(curWS.getMonth()+1).padStart(2,'0')}-${String(curWS.getDate()).padStart(2,'0')}`;
@@ -1719,7 +1722,8 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 
                 if (logo) logo.classList.remove('hidden');
                 if (btnCurrentWeek) btnCurrentWeek.classList.remove('hidden');
-                if (slipNote) slipNote.classList.remove('hidden');
+                if (slipNote) slipNote.classList.toggle('hidden', !window.adminMode);
+                if (adminOnlyBtns) adminOnlyBtns.classList.toggle('hidden', !window.adminMode);
                 
                 if (fp) { fp.set('minDate', null); fp.set('maxDate', null); }
                 
