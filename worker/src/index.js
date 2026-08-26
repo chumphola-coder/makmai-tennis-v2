@@ -155,7 +155,8 @@ async function pushLineMessage(lineUserId, text, channelAccessToken) {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${channelAccessToken}` },
     body: JSON.stringify({ to: lineUserId, messages: [{ type: 'text', text }] }),
   });
-  return res.ok;
+  const body = await res.text();
+  return { ok: res.ok, status: res.status, body };
 }
 
 async function handleAuth(request, env, cors) {
@@ -223,8 +224,8 @@ async function handleNotify(request, env, cors) {
     return jsonResponse({ error: 'messaging_not_configured' }, 501, cors);
   }
 
-  const ok = await pushLineMessage(lineUserId, message, env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN);
-  if (!ok) return jsonResponse({ error: 'line_push_failed' }, 502, cors);
+  const push = await pushLineMessage(lineUserId, message, env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN);
+  if (!push.ok) return jsonResponse({ error: 'line_push_failed', status: push.status, detail: push.body }, 502, cors);
 
   return jsonResponse({ ok: true }, 200, cors);
 }
@@ -262,13 +263,35 @@ async function handleNotifyAdmins(request, env, cors) {
   const text = `🔔 มีคำขอลงทะเบียนใหม่\nบ้านเลขที่ ${resident.houseNumber} (${resident.ownerName || resident.displayName || 'ไม่ทราบชื่อ'})\nกรุณาเข้าเว็บเพื่ออนุมัติ`;
   const adminUids = await listAdminUids(projectId, accessToken);
   let sent = 0;
+  const results = [];
   for (const uid of adminUids) {
     if (!uid.startsWith('line:')) continue;
-    const ok = await pushLineMessage(uid.slice('line:'.length), text, env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN);
-    if (ok) sent++;
+    const push = await pushLineMessage(uid.slice('line:'.length), text, env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN);
+    if (push.ok) sent++;
+    results.push({ uid, status: push.status, detail: push.body });
   }
 
-  return jsonResponse({ ok: true, notified: sent }, 200, cors);
+  return jsonResponse({ ok: true, notified: sent, adminCount: adminUids.length, results }, 200, cors);
+}
+
+// TEMP DEBUG — read-only check of whether LINE_MESSAGING_CHANNEL_ACCESS_TOKEN is valid at all
+// (doesn't send any message). Remove once the messaging secret is confirmed working.
+async function handleDebugLineToken(request, env, cors) {
+  const authHeader = request.headers.get('Authorization') || '';
+  const idToken = authHeader.replace(/^Bearer\s+/i, '');
+  if (!idToken) return jsonResponse({ error: 'missing_id_token' }, 401, cors);
+  try {
+    await verifyFirebaseIdToken(idToken, env.FIREBASE_PROJECT_ID);
+  } catch (e) {
+    return jsonResponse({ error: 'invalid_id_token', detail: String(e) }, 401, cors);
+  }
+  if (!env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN) return jsonResponse({ error: 'messaging_not_configured' }, 501, cors);
+
+  const res = await fetch('https://api.line.me/v2/bot/info', {
+    headers: { Authorization: `Bearer ${env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN}` },
+  });
+  const body = await res.text();
+  return jsonResponse({ status: res.status, body }, 200, cors);
 }
 
 export default {
@@ -284,6 +307,7 @@ export default {
     try {
       if (pathname === '/notify') return await handleNotify(request, env, cors);
       if (pathname === '/notify-admins') return await handleNotifyAdmins(request, env, cors);
+      if (pathname === '/debug-line-token') return await handleDebugLineToken(request, env, cors);
       return await handleAuth(request, env, cors);
     } catch (err) {
       return jsonResponse({ error: 'server_error', detail: String(err) }, 500, cors);
