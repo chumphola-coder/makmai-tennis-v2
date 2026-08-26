@@ -575,7 +575,7 @@
         window.isLoggedIn = false;
         window.adminMode = false;
         // Auth/role state driven by LINE login (see initAuth / loadRoleAndStart).
-        window.APP = { user: null, role: 'guest', house: null, ownerName: null, displayName: '' };
+        window.APP = { user: null, role: 'guest', house: null, ownerName: null, displayName: '', houseProfile: null };
         window.geminiKey = safeStorage.getItem('gemini_api_key') || '';
         window.currentFilterWeek = '';
         window.allBookingsCache = [];
@@ -1260,6 +1260,41 @@
             }
         };
 
+        // Residents may only book for their OWN registered house — lock address/owner fields to it,
+        // and lock customerName/phone once a house profile exists (shared across every LINE account on that house).
+        window.applyResidentBookingLock = function() {
+            const addrInput = document.getElementById('inputAddress');
+            const owner1 = document.getElementById('inputOwner1');
+            const owner2 = document.getElementById('inputOwner2');
+            const nameInput = document.getElementById('inputName');
+            const phoneInput = document.getElementById('inputPhone');
+            const historySelect = document.getElementById('customerHistory');
+            const lockedCls = ['bg-slate-100', 'cursor-not-allowed'];
+            if (!addrInput) return;
+
+            if (window.APP.role === 'resident' && window.APP.house) {
+                addrInput.value = window.normalizeAddress(window.APP.house);
+                addrInput.readOnly = true; addrInput.classList.add(...lockedCls);
+                window.fillOwnerFields(window.APP.ownerName || '');
+                owner1.readOnly = true; owner2.readOnly = true;
+                owner1.classList.add(...lockedCls); owner2.classList.add(...lockedCls);
+                if (historySelect) historySelect.classList.add('hidden');
+
+                if (window.APP.houseProfile) {
+                    nameInput.value = window.APP.houseProfile.customerName || '';
+                    phoneInput.value = window.APP.houseProfile.phoneNumber || '';
+                    nameInput.readOnly = true; phoneInput.readOnly = true;
+                    nameInput.classList.add(...lockedCls); phoneInput.classList.add(...lockedCls);
+                } else {
+                    nameInput.readOnly = false; phoneInput.readOnly = false;
+                    nameInput.classList.remove(...lockedCls); phoneInput.classList.remove(...lockedCls);
+                }
+            } else {
+                [addrInput, owner1, owner2, nameInput, phoneInput].forEach(el => { el.readOnly = false; el.classList.remove(...lockedCls); });
+                if (historySelect) historySelect.classList.remove('hidden');
+            }
+        };
+
         // --- 4. OCR AI SCAN FUNCTION ---
         window.scanSlipAmountWithAI = async function(base64String) {
             const apiKey = window.geminiKey || "";
@@ -1482,11 +1517,18 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                         window.APP.house = d.houseNumber || null;
                         window.APP.ownerName = d.ownerName || null;
                         window.APP.role = (d.status === 'approved') ? 'resident' : 'pending';
+                        if (window.APP.role === 'resident' && window.APP.house) {
+                            try {
+                                const hpSnap = await getDoc(doc(db, 'houseProfiles', window.APP.house));
+                                window.APP.houseProfile = hpSnap.exists() ? hpSnap.data() : null;
+                            } catch (e) { console.error('houseProfile load failed', e); window.APP.houseProfile = null; }
+                        }
                     } else {
                         window.APP.role = 'unregistered';
                     }
                 }
             } catch (e) { console.error('role load failed', e); window.APP.role = 'unregistered'; }
+            window.applyResidentBookingLock();
 
             window.adminMode = (window.APP.role === 'admin');
             window.isLoggedIn = (window.APP.role === 'admin' || window.APP.role === 'resident');
@@ -2541,7 +2583,21 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                     booking.status = 'pending';
                 }
                 await setDoc(doc(collectionRef, newId), booking);
-                
+
+                if (!isAdminUser && !window.APP.houseProfile && window.APP.house) {
+                    try {
+                        await setDoc(doc(db, 'houseProfiles', window.APP.house), {
+                            houseNumber: window.APP.house,
+                            customerName: fd.get('customerName'),
+                            phoneNumber: fd.get('phoneNumber'),
+                            createdAt: Date.now(),
+                            createdByUid: ownerUid,
+                        });
+                        window.APP.houseProfile = { customerName: fd.get('customerName'), phoneNumber: fd.get('phoneNumber') };
+                        window.applyResidentBookingLock();
+                    } catch (errHouseProfile) { console.warn("Failed to save house profile", errHouseProfile); }
+                }
+
                 try {
                     const safeName = encodeURIComponent(fd.get('customerName').trim().replace(/\s+/g, '_'));
                     const customerId = `CUST_${cleanAddress}_${safeName}`;
@@ -2685,7 +2741,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 if (user) {
                     window.loadRoleAndStart(user);
                 } else {
-                    window.APP = { user: null, role: 'guest', house: null, ownerName: null, displayName: '' };
+                    window.APP = { user: null, role: 'guest', house: null, ownerName: null, displayName: '', houseProfile: null };
                     window.isLoggedIn = false; window.adminMode = false;
                     window.updateLoginUI();
                 }

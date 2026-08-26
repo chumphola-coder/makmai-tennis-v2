@@ -57,6 +57,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Locked customerName/phoneNumber shared by every LINE account tied to one house
+    // (a house can have several residents logging in with different LINE accounts).
+    // First approved resident to book sets it; only admin can change it afterwards.
+    match /houseProfiles/{houseKey} {
+      allow read: if isSignedIn();
+      allow create: if isApprovedResident() && myResident().houseNumber == houseKey;
+      allow update, delete: if isAdmin();
+    }
+
     match /bookings/{id} {
       allow read: if isSignedIn();
 
@@ -64,6 +73,7 @@ service cloud.firestore {
         || (isApprovedResident() && request.resource.data.get('isCustomerProfile', false) == true)
         || (isApprovedResident()
             && request.resource.data.ownerUid == request.auth.uid
+            && request.resource.data.houseNumber == myResident().houseNumber
             && request.resource.data.status == 'pending'
             && request.resource.data.get('scannedAmount', 0) == 0
             && !('confirmedBy' in request.resource.data));
