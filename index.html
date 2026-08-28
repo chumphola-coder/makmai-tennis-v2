@@ -235,6 +235,7 @@
                                     ใบเสร็จหลายการจอง<br><span class="font-normal">(อนุญาตให้ยอดเงินสลิป มากกว่า ค่าจองรอบนี้ได้)</span>
                                 </label>
                             </div>
+                            <div class="text-[10px] md:text-[11px] text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1.5 mt-1">⚠️ หากไม่แนบสลิปยืนยันการชำระเงิน ระบบจะยกเลิกการจองอัตโนมัติภายใน 1 ชั่วโมง</div>
                         </div>
 
                         <div class="px-3 md:px-4 py-2 md:py-2.5 bg-slate-50 rounded-xl flex justify-between items-center border-2 border-dashed border-blue-100">
@@ -2824,7 +2825,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         window.autoDeletePastUnpaid = async function() {
             const nowStr = `${window.getThailandDate()} ${window.getThailandHour().toString().padStart(2,'0')}:00`;
             const now = Date.now();
-            const EXPIRY_MS = 24 * 60 * 60 * 1000; // unpaid bookings expire 24h after they were created
+            const EXPIRY_MS = 60 * 60 * 1000; // unpaid bookings expire 1h after they were created
             for (const b of window.allBookingsCache) {
                 if (window.hasSlip(b) || b.isCustomerProfile) continue;
                 const playPassed = `${b.date} ${(b.time||"00:00").split(':')[0].padStart(2,'0')}:00` <= nowStr;
