@@ -2679,7 +2679,9 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                     if (files.length === 0) return window.showAlert("⚠️ จำเป็นต้องอัพโหลดสลิปชำระเงินเพื่อยืนยัน");
                 } else {
                     if (date < todayThaiStr || (date === todayThaiStr && startH < nowH)) return window.showAlert("❌ ไม่สามารถจองเวลาย้อนหลังได้ กรุณาใช้ปุ่ม 'บันทึกย้อนหลัง'", "danger");
-                    if (isCurrentHour && files.length === 0) return window.showAlert("⚠️ การจองคอร์ตเล่นทันที จำเป็นต้องอัพโหลดสลิปด้วย");
+                    // Residents aren't forced to upload here — the slip usually gets sent to admin via LINE
+                    // instead, especially when it covers multiple bookings or one booking has several slips.
+                    if (isCurrentHour && files.length === 0 && window.APP.role === 'admin') return window.showAlert("⚠️ การจองคอร์ตเล่นทันที จำเป็นต้องอัพโหลดสลิปด้วย");
                     if (date > todayThaiStr) {
                         if (window.allBookingsCache.filter(b => window.normalizeAddress(b.address) === cleanAddress && b.date > todayThaiStr).length >= 3) return window.showAlert(`❌ บ้านเลขที่ 125/${cleanAddress} จองล่วงหน้าเต็มโควต้า 3 ครั้งแล้ว`, "danger");
                     }
