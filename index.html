@@ -1601,7 +1601,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             if (detailsErrEl) detailsErrEl.classList.add('hidden');
 
             const user = window.APP.user;
-            if (!user) return;
+            if (!user) return window.showAlert("กรุณาเข้าสู่ระบบด้วย LINE ก่อนลงทะเบียน", "danger");
             try {
                 await setDoc(doc(db, 'residents', user.uid), {
                     uid: user.uid,
