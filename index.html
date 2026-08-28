@@ -150,6 +150,10 @@
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                             รายงาน
                         </button>
+                        <button onclick="window.togglePreviewAsResident()" id="previewResidentBtn" class="hidden px-4 py-2 bg-slate-700 text-white rounded-xl text-sm font-bold hover:bg-slate-800 flex items-center gap-2 transition-all shadow-lg shadow-slate-900/20">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            👁️ พรีวิวมุมมองลูกบ้าน
+                        </button>
                     </div>
                 </div>
                 
@@ -179,7 +183,7 @@
              The tops of #bookingPanel (Left) and the Booking List Panel (Right) MUST align perfectly.
              Both columns start directly with their panels. No spacers used above them.
         !!! -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+        <div id="mainAppGrid" class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
             <!-- Left: Booking Form -->
             <div id="leftColumn" class="lg:col-span-4 no-print hidden">
                 <div class="glass-panel p-4 md:p-5 border border-slate-200 sticky top-4 w-full" id="bookingPanel">
@@ -392,6 +396,16 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Shown instead of the schedule when not logged in, so a visitor isn't shown a booking-looking grid they can't use -->
+        <div id="guestLandingPrompt" class="hidden flex-col items-center justify-center text-center gap-4 py-16 px-4">
+            <div class="text-5xl">🎾</div>
+            <h2 class="text-lg md:text-xl font-bold text-slate-700">เข้าสู่ระบบเพื่อดูตารางและจองสนาม</h2>
+            <p class="text-sm text-slate-500 max-w-sm">กรุณาเข้าสู่ระบบด้วยบัญชี LINE ของคุณ เพื่อดูตารางว่าง จองคอร์ต และตรวจสอบประวัติการจองของคุณ</p>
+            <button onclick="window.toggleLogin()" class="px-6 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg flex items-center gap-2">
+                🔐 เข้าสู่ระบบด้วย LINE
+            </button>
         </div>
     </div>
 
@@ -650,6 +664,17 @@
         window.adminMode = false;
         // Auth/role state driven by LINE login (see initAuth / loadRoleAndStart).
         window.APP = { user: null, role: 'guest', house: null, ownerName: null, displayName: '', houseProfile: null };
+        // Lets a real admin preview the resident UI without a second test account.
+        // UI-only: does not grant/remove any actual Firestore permission.
+        window.previewAsResident = false;
+        window.isEffectivelyResident = function() {
+            return window.APP.role === 'resident' || (window.APP.role === 'admin' && window.previewAsResident);
+        };
+        window.togglePreviewAsResident = function() {
+            window.previewAsResident = !window.previewAsResident;
+            window.updateLoginUI();
+            window.renderAdminApproveButton();
+        };
         window.geminiKey = safeStorage.getItem('gemini_api_key') || '';
         window.currentFilterWeek = '';
         window.allBookingsCache = [];
@@ -1723,7 +1748,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         // --- ADMIN: approve pending residents ---
         window.renderAdminApproveButton = function() {
             let btn = document.getElementById('adminApproveBtn');
-            if (window.APP.role !== 'admin') { if (btn) btn.remove(); return; }
+            if (window.APP.role !== 'admin' || window.previewAsResident) { if (btn) btn.remove(); return; }
             if (btn) return;
             const header = document.getElementById('adminBtn')?.parentElement;
             if (!header) return;
@@ -1847,10 +1872,16 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 
                 if (logo) logo.classList.remove('hidden');
                 if (btnCurrentWeek) btnCurrentWeek.classList.remove('hidden');
-                if (slipNote) slipNote.classList.toggle('hidden', !window.adminMode);
-                if (adminOnlyBtns) adminOnlyBtns.classList.toggle('hidden', !window.adminMode);
+                if (slipNote) slipNote.classList.toggle('hidden', !window.adminMode || window.previewAsResident);
+                if (adminOnlyBtns) adminOnlyBtns.classList.toggle('hidden', !window.adminMode || window.previewAsResident);
 
-                const isResident = window.APP.role === 'resident';
+                const previewBtn = document.getElementById('previewResidentBtn');
+                if (previewBtn) {
+                    previewBtn.classList.toggle('hidden', window.APP.role !== 'admin');
+                    previewBtn.textContent = window.previewAsResident ? '👁️ กลับสู่แอดมิน' : '👁️ พรีวิวมุมมองลูกบ้าน';
+                }
+
+                const isResident = window.isEffectivelyResident();
                 lc.classList.toggle('hidden', isResident);
                 rc.classList.toggle('lg:col-span-8', !isResident); rc.classList.toggle('lg:col-span-12', isResident);
 
@@ -2060,9 +2091,19 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         // Builds one slot's inner HTML; compact=true adds the time label since there's no separate time column
         window.buildSlotTile = function(date, h, court, filtered, today, nowH, compact) {
             const isP = (date < today) || (date === today && h < nowH);
+            const timeLabel = compact ? `<span class="text-[9px] font-mono opacity-70">${h}:00</span>` : '';
+
+            // Not-logged-in visitors never see booking details (name/plot/payment status) - just a real
+            // (but possibly slightly stale) busy/free indicator sourced from a PII-free public mirror.
+            if (window.APP.role === 'guest') {
+                if (isP) return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-sm slot-past flex flex-col items-center justify-center h-full gap-0.5">${timeLabel}<span>✕</span></div>`;
+                const isBusy = filtered.has(`${court}_${h}`);
+                if (isBusy) return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold slot-booked flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all">${timeLabel}<span class="line-through opacity-80">ไม่ว่าง</span></div>`;
+                return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-sm font-bold slot-free transition-all flex flex-col items-center justify-center h-full gap-0.5">${timeLabel}<span>ว่าง</span></div>`;
+            }
+
             const b = filtered.find(x => h >= parseInt((x.time||"0").split(':')[0],10) && h < parseInt((x.time||"0").split(':')[0],10) + Number(x.hours||1) && x.court === court);
             let exc = (b && String(b.id) === String(window.highlightedBookingId)) ? 'ring-2 ring-offset-1 ring-amber-400 shadow-md scale-105 z-10 relative' : '';
-            const timeLabel = compact ? `<span class="text-[9px] font-mono opacity-70">${h}:00</span>` : '';
             if (b) {
                 const fin = (date < today) || (date === today && nowH >= (parseInt(b.time.split(':')[0],10) + Number(b.hours)));
                 const hasSlip = window.hasSlip(b);
@@ -2076,11 +2117,16 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                     else if (scannedPrice > expectedPrice) cls = 'slot-overpaid';
                     else cls = 'slot-paid';
                 }
+                // Signed-in but not-yet-approved residents can see real free/busy status (no legend needed to
+                // interpret it) but never other residents' name/plot number until their own account is approved.
+                if (window.APP.role === 'pending') {
+                    return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all">${timeLabel}<span class="line-through opacity-80">ไม่ว่าง</span></div>`;
+                }
                 return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} ${exc} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all">${timeLabel}<span class="truncate w-full text-center px-1">${b.customerName}</span><span class="text-[8px] md:text-[10px] font-medium opacity-90 mt-0.5">125/${b.address}</span></div>`;
             } else if (isP) {
                 return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-sm slot-past flex flex-col items-center justify-center h-full gap-0.5">${timeLabel}<span>✕</span></div>`;
             }
-            const isResident = window.APP && window.APP.role === 'resident';
+            const isResident = window.isEffectivelyResident();
             if (isResident) {
                 const sel = window.residentSelection;
                 const isSelected = sel && sel.slots.some(s => s.date === date && s.court === court && s.hour === h);
@@ -2091,11 +2137,46 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         };
 
         // --- 7. RENDER LOGIC ---
+        // A PII-free "busy" mirror lets not-logged-in visitors see genuinely real (if occasionally a bit
+        // stale) free/busy status without exposing any resident's name/phone/plot number. It's kept in sync
+        // opportunistically by whichever signed-in client (resident/pending/admin) happens to view a date -
+        // no backend/Cloud Function needed, so this stays on Firebase's free plan forever.
+        window.publicAvailabilityCache = {};
+        window.syncPublicAvailability = async function(date, filtered) {
+            if (!window.isLoggedIn && window.APP.role !== 'pending') return;
+            try {
+                const busy = [];
+                for (let h = 6; h <= 20; h++) {
+                    ['สนาม 1', 'สนาม 2'].forEach(court => {
+                        const found = filtered.some(x => h >= parseInt((x.time||"0").split(':')[0],10) && h < parseInt((x.time||"0").split(':')[0],10) + Number(x.hours||1) && x.court === court);
+                        if (found) busy.push(`${court}_${h}`);
+                    });
+                }
+                await setDoc(doc(db, 'publicAvailability', date), { date, busy, updatedAt: Date.now() });
+            } catch (e) { console.warn('publicAvailability sync failed', e); }
+        };
+        window.fetchPublicAvailability = async function(date) {
+            if (window.publicAvailabilityCache[date]) return;
+            window.publicAvailabilityCache[date] = new Set();
+            try {
+                const snap = await getDoc(doc(db, 'publicAvailability', date));
+                window.publicAvailabilityCache[date] = new Set(snap.exists() ? (snap.data().busy || []) : []);
+                window.renderSchedule();
+            } catch (e) { console.warn('fetch public availability failed', e); }
+        };
+
         window.renderSchedule = function() {
             const date = document.getElementById('scheduleDateInput').value; if (!date) return;
             window.renderDayPills();
             const today = window.getThailandDate(), nowH = window.getThailandHour();
-            const filtered = window.allBookingsCache.filter(b => b.date === date);
+            let filtered;
+            if (window.APP.role === 'guest') {
+                window.fetchPublicAvailability(date);
+                filtered = window.publicAvailabilityCache[date] || new Set();
+            } else {
+                filtered = window.allBookingsCache.filter(b => b.date === date);
+                window.syncPublicAvailability(date, filtered);
+            }
             const tableWrap = document.getElementById('scheduleTableWrap'), compactGrid = document.getElementById('scheduleCompactGrid');
             const filter = window.scheduleCourtFilter || 'all';
 
@@ -2308,7 +2389,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         window.renderBookingList = function() {
             const tbody = document.getElementById('bookingTableBody'), th = document.getElementById('thActions'); tbody.innerHTML = '';
             if (th) { if (window.isLoggedIn) th.classList.remove('hidden'); else th.classList.add('hidden'); }
-            const isResident = window.APP && window.APP.role === 'resident';
+            const isResident = window.isEffectivelyResident();
             let list;
             if (isResident) {
                 if (!window.residentHistoryMonth) window.residentHistoryMonth = window.getThailandDate().slice(0, 7);

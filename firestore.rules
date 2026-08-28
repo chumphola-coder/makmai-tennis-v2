@@ -84,6 +84,15 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // PII-free busy/free mirror (date, court+hour keys only - never a name/phone/plot number) so that
+    // not-logged-in visitors can see real availability without ever being able to read the bookings
+    // collection itself. Kept in sync opportunistically by any signed-in client (see syncPublicAvailability
+    // in index.html), not a backend/Cloud Function, so this stays on Firebase's free plan.
+    match /publicAvailability/{dateId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
     match /bookings/{id} {
       allow read: if isSignedIn();
 
