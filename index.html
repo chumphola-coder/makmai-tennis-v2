@@ -1902,8 +1902,8 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 // For residents, keep the schedule/history tab switcher (one panel at a time) at every
                 // screen size instead of the admin/guest layout that always shows both panels on desktop.
                 const rightTabSwitcher = document.getElementById('rightTabSwitcher'), listPanelWrap = document.getElementById('listPanelWrap'), schedulePanelWrap = document.getElementById('schedulePanelWrap');
-                if (rightTabSwitcher) rightTabSwitcher.classList.toggle('lg:hidden', !isResident);
-                if (listPanelWrap) listPanelWrap.classList.toggle('lg:block', !isResident);
+                if (rightTabSwitcher) { rightTabSwitcher.classList.remove('hidden'); rightTabSwitcher.classList.add('flex'); rightTabSwitcher.classList.toggle('lg:hidden', !isResident); }
+                if (listPanelWrap) { listPanelWrap.classList.toggle('lg:block', !isResident); }
                 if (schedulePanelWrap) schedulePanelWrap.classList.toggle('lg:block', !isResident);
                 if (isResident) window.setRightTab(document.getElementById('tabBtnList')?.classList.contains('bg-white') ? 'list' : 'schedule');
                 
@@ -1937,6 +1937,12 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 // (ค้างชำระ/ยอดไม่ครบ/ชำระเกิน/etc.) never applies to them, so hide it.
                 const scheduleLegendGuest = document.getElementById('scheduleLegend');
                 if (scheduleLegendGuest) scheduleLegendGuest.classList.add('hidden');
+
+                // Not-logged-in visitors must never see any booking-history/list panel (that's real
+                // resident/admin data) - hide it and the tab switcher entirely, leaving just the schedule.
+                const rightTabSwitcherGuest = document.getElementById('rightTabSwitcher'), listPanelWrapGuest = document.getElementById('listPanelWrap');
+                if (rightTabSwitcherGuest) { rightTabSwitcherGuest.classList.remove('flex'); rightTabSwitcherGuest.classList.add('hidden'); }
+                if (listPanelWrapGuest) { listPanelWrapGuest.classList.add('hidden'); listPanelWrapGuest.classList.remove('lg:block'); }
             }
             window.renderAll();
         };
@@ -2323,6 +2329,11 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
 
         window.confirmResidentBooking = async function() {
             const slots = window.residentSelection.slots; if (!slots.length) return;
+            if (!window.APP.house) {
+                // Happens when an admin uses "Preview as resident" - they have no real registered house,
+                // so a real booking would be saved with a null address/house number. Block it outright.
+                return window.showAlert("นี่คือโหมดพรีวิวสำหรับแอดมินเท่านั้น ไม่สามารถจองจริงได้ กรุณาออกจากโหมดพรีวิวก่อน", "warning");
+            }
             const btn = document.getElementById('residentConfirmBtn');
             btn.disabled = true; btn.innerText = 'กำลังบันทึก...';
             try {
