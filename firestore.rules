@@ -28,6 +28,11 @@ service cloud.firestore {
         && myResident().status == 'approved';
     }
 
+    // Includes 'pending' residents mid-registration, unlike isApprovedResident().
+    function isRegisteredResident() {
+      return isSignedIn() && exists(/databases/$(database)/documents/residents/$(request.auth.uid));
+    }
+
     // Fields a resident is NOT allowed to set or change on a booking.
     function protectedUnchanged() {
       return request.resource.data.ownerUid == resource.data.ownerUid
@@ -68,7 +73,8 @@ service cloud.firestore {
     // First approved resident to book sets it; only admin can change it afterwards.
     match /houseProfiles/{houseKey} {
       allow read: if isSignedIn();
-      allow create: if isApprovedResident() && myResident().houseNumber == houseKey;
+      // Registration (pending) or an approved resident may set it once for their own house.
+      allow create: if isRegisteredResident() && myResident().houseNumber == houseKey;
       allow update, delete: if isAdmin();
     }
 

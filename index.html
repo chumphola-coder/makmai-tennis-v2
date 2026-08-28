@@ -1568,6 +1568,11 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                     <label class="text-sm font-bold text-slate-600">เลขที่บ้าน</label>
                     <input type="text" id="regHouse" placeholder="เช่น 125/1" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key === 'Enter') window.submitRegister()">
                     <p id="regHouseError" class="text-xs text-red-500 mt-1 mb-3 hidden">ไม่พบเลขที่บ้านนี้ในระบบ กรุณาตรวจสอบอีกครั้ง</p>
+                    <label class="text-sm font-bold text-slate-600 mt-3 block">ชื่อผู้จอง</label>
+                    <input type="text" id="regCustomerName" placeholder="ชื่อ-นามสกุล" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key === 'Enter') window.submitRegister()">
+                    <label class="text-sm font-bold text-slate-600 mt-3 block">เบอร์โทร</label>
+                    <input type="tel" id="regPhone" maxlength="10" placeholder="08xxxxxxxx" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key === 'Enter') window.submitRegister()">
+                    <p id="regDetailsError" class="text-xs text-red-500 mt-1 mb-3 hidden">กรุณากรอกชื่อผู้จองและเบอร์โทรให้ครบถ้วน</p>
                     <div class="flex gap-3 mt-3">
                         <button onclick="window.submitRegister()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg">ส่งขออนุมัติ</button>
                         <button onclick="window.toggleLogin()" class="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold">ออก</button>
@@ -1585,6 +1590,16 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 return;
             }
             if (errEl) errEl.classList.add('hidden');
+
+            const customerName = document.getElementById('regCustomerName').value.trim();
+            const phoneNumber = document.getElementById('regPhone').value.trim();
+            const detailsErrEl = document.getElementById('regDetailsError');
+            if (!customerName || !phoneNumber) {
+                if (detailsErrEl) detailsErrEl.classList.remove('hidden');
+                return;
+            }
+            if (detailsErrEl) detailsErrEl.classList.add('hidden');
+
             const user = window.APP.user;
             if (!user) return;
             try {
@@ -1596,6 +1611,21 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                     status: 'pending',
                     createdAt: Date.now(),
                 });
+
+                // Shared per-house profile: first person to register sets it, later registrants don't overwrite it.
+                try {
+                    const hpSnap = await getDoc(doc(db, 'houseProfiles', house));
+                    if (!hpSnap.exists()) {
+                        await setDoc(doc(db, 'houseProfiles', house), {
+                            houseNumber: house,
+                            customerName: customerName,
+                            phoneNumber: phoneNumber,
+                            createdAt: Date.now(),
+                            createdByUid: user.uid,
+                        });
+                    }
+                } catch (errHouseProfile) { console.warn("Failed to save house profile at registration", errHouseProfile); }
+
                 document.getElementById('registerModal')?.remove();
                 window.APP.role = 'pending';
                 window.APP.house = house;
@@ -2609,7 +2639,10 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 }
                 await setDoc(doc(collectionRef, newId), booking);
 
-                if (!isAdminUser && !window.APP.houseProfile && window.APP.house) {
+                // Shared per-house profile: set it once, either by a resident's first booking, or by an
+                // admin booking for their OWN registered house (admin walk-in bookings for other houses don't touch it).
+                const isOwnHouseBooking = window.APP.house && bookingHouse === window.APP.house;
+                if ((!isAdminUser || isOwnHouseBooking) && !window.APP.houseProfile && window.APP.house) {
                     try {
                         await setDoc(doc(db, 'houseProfiles', window.APP.house), {
                             houseNumber: window.APP.house,
