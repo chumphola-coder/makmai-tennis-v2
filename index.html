@@ -565,7 +565,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { initializeFirestore, collection, doc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot, query, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeFirestore, collection, doc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const config = (window.APP_CONFIG && window.APP_CONFIG.firebase) || {};
 
@@ -2328,9 +2328,13 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 summary = snap.exists() ? snap.data() : null;
             } catch (e) { console.warn('report rollup read failed', e); }
 
-            const asOfDate = (summary && summary.asOfDate) || '2000-01-01';
+            // A rollup saved before unique-address/customer tracking existed can't be trusted
+            // incrementally (it never recorded distinct values) — treat it as absent just this once
+            // so everything gets rebuilt from scratch instead of silently undercounting forever.
+            const isValidRollup = !!(summary && Array.isArray(summary.addresses) && Array.isArray(summary.customerNames));
+            const asOfDate = (isValidRollup && summary.asOfDate) || '2000-01-01';
             const monthly = {};
-            if (summary && summary.monthly) {
+            if (isValidRollup && summary.monthly) {
                 Object.keys(summary.monthly).forEach(k => {
                     const m = summary.monthly[k];
                     monthly[k] = { revenue: m.revenue || 0, hours: m.hours || 0, lightHours: m.lightHours || 0 };
@@ -2356,27 +2360,35 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 monthly[mKey].lightHours += Number(b.lightHours) || 0;
             });
 
+            // Unique plots (แปลง) and unique bookers (ผู้จอง) are two different things — track both
+            // as persisted sets in the rollup itself (same idea as revenue, just distinct-value sets).
+            const addressSet = new Set(isValidRollup ? summary.addresses : []);
+            const nameSet = new Set(isValidRollup ? summary.customerNames : []);
+            deltaDocs.filter(b => window.hasSlip(b)).forEach(b => {
+                if (b.address) addressSet.add(String(b.address));
+                if (b.customerName) nameSet.add(b.customerName);
+            });
+
             // Roll the checkpoint forward so the next report open has an even smaller delta to fetch.
             const todayStr = window.getThailandDate();
-            if (deltaDocs.length > 0 || !summary) {
-                try { await setDoc(doc(db, 'reportRollup', 'summary'), { asOfDate: todayStr, monthly: monthly, updatedAt: Date.now() }); }
-                catch (e) { console.warn('report rollup save failed', e); }
+            if (deltaDocs.length > 0 || !isValidRollup) {
+                try {
+                    await setDoc(doc(db, 'reportRollup', 'summary'), {
+                        asOfDate: todayStr, monthly: monthly,
+                        addresses: Array.from(addressSet), customerNames: Array.from(nameSet),
+                        updatedAt: Date.now(),
+                    });
+                } catch (e) { console.warn('report rollup save failed', e); }
             }
 
-            let uC = 0;
-            try {
-                const countSnap = await window.withTimeout(getCountFromServer(query(collectionRef, where('isCustomerProfile', '==', true))));
-                uC = countSnap.data().count;
-            } catch (e) { console.warn('unique customer count failed', e); }
-
-            return { monthly, uC };
+            return { monthly, uniqueAddresses: addressSet.size, uniqueCustomers: nameSet.size };
         };
 
         window.openReportModal = async () => {
              const today = window.getThailandDate(), curM = today.slice(0, 7), curY = today.slice(0, 4);
              const reportData = await window.getReportData();
              if (!reportData) return;
-             const { monthly, uC } = reportData;
+             const { monthly, uniqueAddresses, uniqueCustomers } = reportData;
              const mTotal = (monthly[curM] && monthly[curM].revenue) || 0;
              const yTotal = Object.keys(monthly).filter(k => k.startsWith(curY)).reduce((s, k) => s + monthly[k].revenue, 0);
              const mTH = new Array(12).fill(0), mLH = new Array(12).fill(0), mNLH = new Array(12).fill(0);
@@ -2402,9 +2414,13 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                         <div class="text-xs font-bold text-indigo-400 uppercase">รายได้ปีนี้ (${curY})</div>
                         <div class="text-3xl font-black text-indigo-700">฿${yTotal.toLocaleString()}</div>
                     </div>
-                    <div class="bg-emerald-50 p-6 rounded-2xl text-center md:col-span-2">
-                        <div class="text-xs font-bold text-emerald-500 uppercase">ผู้ใช้บริการที่ไม่ซ้ำกัน</div>
-                        <div class="text-3xl font-black text-emerald-700">${uC.toLocaleString()} คน</div>
+                    <div class="bg-emerald-50 p-6 rounded-2xl text-center">
+                        <div class="text-xs font-bold text-emerald-500 uppercase">แปลงที่ไม่ซ้ำกัน</div>
+                        <div class="text-3xl font-black text-emerald-700">${uniqueAddresses.toLocaleString()} แปลง</div>
+                    </div>
+                    <div class="bg-teal-50 p-6 rounded-2xl text-center">
+                        <div class="text-xs font-bold text-teal-500 uppercase">ผู้จองที่ไม่ซ้ำกัน</div>
+                        <div class="text-3xl font-black text-teal-700">${uniqueCustomers.toLocaleString()} คน</div>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
