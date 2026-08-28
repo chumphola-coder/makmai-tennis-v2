@@ -279,8 +279,8 @@
 
             <!-- Right: Content -->
             <div id="rightColumn" class="lg:col-span-12 w-full flex flex-col">
-                <!-- Mobile tab switcher: both panels stay visible on lg+ regardless of active tab -->
-                <div class="flex lg:hidden gap-2 mb-2 bg-slate-100 p-1 rounded-xl no-print">
+                <!-- Mobile tab switcher: both panels stay visible on lg+ regardless of active tab (except for residents, see updateLoginUI) -->
+                <div id="rightTabSwitcher" class="flex lg:hidden gap-2 mb-2 bg-slate-100 p-1 rounded-xl no-print">
                     <button type="button" id="tabBtnSchedule" onclick="window.setRightTab('schedule')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-colors bg-white shadow-sm text-indigo-700">ตารางสนาม</button>
                     <button type="button" id="tabBtnList" onclick="window.setRightTab('list')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-colors text-slate-500">ประวัติการจอง</button>
                 </div>
@@ -1898,6 +1898,14 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 if (listMonthNav) { listMonthNav.classList.toggle('hidden', !isResident); listMonthNav.classList.toggle('flex', isResident); }
                 if (listPanelTitle) listPanelTitle.innerText = isResident ? 'ประวัติการจองของคุณ' : 'ประวัติการจองรายสัปดาห์';
                 if (isResident) { if (!window.residentHistoryMonth) window.residentHistoryMonth = today.slice(0, 7); window.updateHistoryMonthLabel(); }
+
+                // For residents, keep the schedule/history tab switcher (one panel at a time) at every
+                // screen size instead of the admin/guest layout that always shows both panels on desktop.
+                const rightTabSwitcher = document.getElementById('rightTabSwitcher'), listPanelWrap = document.getElementById('listPanelWrap'), schedulePanelWrap = document.getElementById('schedulePanelWrap');
+                if (rightTabSwitcher) rightTabSwitcher.classList.toggle('lg:hidden', !isResident);
+                if (listPanelWrap) listPanelWrap.classList.toggle('lg:block', !isResident);
+                if (schedulePanelWrap) schedulePanelWrap.classList.toggle('lg:block', !isResident);
+                if (isResident) window.setRightTab(document.getElementById('tabBtnList')?.classList.contains('bg-white') ? 'list' : 'schedule');
                 
                 if (fp) { fp.set('minDate', null); fp.set('maxDate', null); }
                 
