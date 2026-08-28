@@ -127,11 +127,11 @@
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
                             จัดการข้อมูล
                         </button>
+                        <button onclick="window.openReportModal()" class="px-4 py-2 bg-indigo-500 text-white rounded-xl text-sm font-bold hover:bg-indigo-400 flex items-center gap-2 transition-all shadow-lg shadow-indigo-900/20">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            รายงาน
+                        </button>
                     </div>
-                    <button onclick="window.openReportModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 flex items-center gap-2 transition-all shadow-lg shadow-indigo-200">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        รายงาน
-                    </button>
                     <button onclick="window.toggleAdminMode()" id="adminBtn" class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm font-bold hover:bg-red-100 transition-all flex items-center gap-2 ml-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                         🔒 เข้าสู่ระบบแอดมิน
@@ -565,7 +565,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { initializeFirestore, collection, doc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeFirestore, collection, doc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot, query, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const config = (window.APP_CONFIG && window.APP_CONFIG.firebase) || {};
 
@@ -2319,23 +2319,73 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             window.closeModal(); window.showAlert("ดาวน์โหลด Excel สำเร็จ", "success");
         };
 
-        window.openReportModal = () => {
-             const list = window.allBookingsCache, today = window.getThailandDate(), curM = today.slice(0, 7), curY = today.slice(0, 4), paidList = list.filter(b => window.hasSlip(b) && !b.isCustomerProfile);
-             const mTotal = paidList.filter(b => b.date && b.date.startsWith(curM)).reduce((s, b) => s + (Number(b.totalPrice) || 0), 0);
-             const yTotal = paidList.filter(b => b.date && b.date.startsWith(curY)).reduce((s, b) => s + (Number(b.totalPrice) || 0), 0);
-             const uC = new Set(paidList.map(b => b.customerName)).size;
+        // Combines a precomputed rollup (reportRollup/summary) with only the bookings created since
+        // its checkpoint, so the report never has to read the entire booking history to compute totals.
+        window.getReportData = async function() {
+            let summary = null;
+            try {
+                const snap = await window.withTimeout(getDoc(doc(db, 'reportRollup', 'summary')));
+                summary = snap.exists() ? snap.data() : null;
+            } catch (e) { console.warn('report rollup read failed', e); }
+
+            const asOfDate = (summary && summary.asOfDate) || '2000-01-01';
+            const monthly = {};
+            if (summary && summary.monthly) {
+                Object.keys(summary.monthly).forEach(k => {
+                    const m = summary.monthly[k];
+                    monthly[k] = { revenue: m.revenue || 0, hours: m.hours || 0, lightHours: m.lightHours || 0 };
+                });
+            }
+
+            let deltaDocs = [];
+            try {
+                const deltaSnap = await window.withTimeout(getDocs(query(collectionRef, where('date', '>', asOfDate))));
+                deltaSnap.forEach(d => { const data = d.data(); if (!data.isCustomerProfile) deltaDocs.push(data); });
+            } catch (e) {
+                console.error('report delta fetch failed', e);
+                window.showAlert("โหลดข้อมูลรายงานไม่สำเร็จ: " + (e && e.message ? e.message : e), "danger");
+                return null;
+            }
+
+            deltaDocs.filter(b => window.hasSlip(b)).forEach(b => {
+                if (!b.date) return;
+                const mKey = b.date.slice(0, 7);
+                if (!monthly[mKey]) monthly[mKey] = { revenue: 0, hours: 0, lightHours: 0 };
+                monthly[mKey].revenue += Number(b.totalPrice) || 0;
+                monthly[mKey].hours += Number(b.hours) || 0;
+                monthly[mKey].lightHours += Number(b.lightHours) || 0;
+            });
+
+            // Roll the checkpoint forward so the next report open has an even smaller delta to fetch.
+            const todayStr = window.getThailandDate();
+            if (deltaDocs.length > 0 || !summary) {
+                try { await setDoc(doc(db, 'reportRollup', 'summary'), { asOfDate: todayStr, monthly: monthly, updatedAt: Date.now() }); }
+                catch (e) { console.warn('report rollup save failed', e); }
+            }
+
+            let uC = 0;
+            try {
+                const countSnap = await window.withTimeout(getCountFromServer(query(collectionRef, where('isCustomerProfile', '==', true))));
+                uC = countSnap.data().count;
+            } catch (e) { console.warn('unique customer count failed', e); }
+
+            return { monthly, uC };
+        };
+
+        window.openReportModal = async () => {
+             const today = window.getThailandDate(), curM = today.slice(0, 7), curY = today.slice(0, 4);
+             const reportData = await window.getReportData();
+             if (!reportData) return;
+             const { monthly, uC } = reportData;
+             const mTotal = (monthly[curM] && monthly[curM].revenue) || 0;
+             const yTotal = Object.keys(monthly).filter(k => k.startsWith(curY)).reduce((s, k) => s + monthly[k].revenue, 0);
              const mTH = new Array(12).fill(0), mLH = new Array(12).fill(0), mNLH = new Array(12).fill(0);
-             
-             paidList.forEach(b => { 
-                 if(b.date && b.date.startsWith(curY)) { 
-                     const m = parseInt(b.date.split('-')[1], 10) - 1;
-                     const h = Number(b.hours) || 0; 
-                     const lh = Number(b.lightHours) || 0; 
-                     mTH[m] += h; 
-                     mLH[m] += lh; 
-                     mNLH[m] += (h - lh); 
-                 } 
-             });
+
+             for (let i = 0; i < 12; i++) {
+                 const mKey = `${curY}-${String(i + 1).padStart(2, '0')}`;
+                 const m = monthly[mKey];
+                 if (m) { mTH[i] = m.revenue; mLH[i] = m.lightHours; mNLH[i] = m.hours - m.lightHours; }
+             }
              
              document.getElementById('reportSummaryContent').innerHTML = `
                 <div class="text-center mb-6">
@@ -2386,7 +2436,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                      type: 'bar', 
                      data: { 
                          labels: thaiMonths, 
-                         datasets: [{ label: 'รายได้ (บาท)', data: mTH.map((_, i) => paidList.filter(b => b.date && b.date.startsWith(`${curY}-${String(i+1).padStart(2,'0')}`)).reduce((s, b) => s + (Number(b.totalPrice) || 0), 0)), backgroundColor: '#3b82f6', borderRadius: 4 }] 
+                         datasets: [{ label: 'รายได้ (บาท)', data: mTH, backgroundColor: '#3b82f6', borderRadius: 4 }] 
                      }, 
                      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } 
                  });

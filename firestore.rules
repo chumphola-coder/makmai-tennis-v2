@@ -68,6 +68,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Precomputed revenue/hours rollup used by the admin-only report, so it doesn't need to
+    // read every booking ever made. Admin-only since it's only ever read from the report screen.
+    match /reportRollup/{doc} {
+      allow read, write: if isAdmin();
+    }
+
     // Locked customerName/phoneNumber shared by every LINE account tied to one house
     // (a house can have several residents logging in with different LINE accounts).
     // First approved resident to book sets it; only admin can change it afterwards.
