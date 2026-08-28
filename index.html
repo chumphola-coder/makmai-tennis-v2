@@ -1924,6 +1924,11 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 const courtAllBtnGuest = document.getElementById('courtToggleAllBtn');
                 if (courtAllBtnGuest) courtAllBtnGuest.classList.add('hidden');
                 if (window.scheduleCourtFilter === 'all') window.setCourtFilter('สนาม 1');
+
+                // Guests only ever see 2-3 states (ว่าง/ไม่ว่าง/past) - the full payment-status legend
+                // (ค้างชำระ/ยอดไม่ครบ/ชำระเกิน/etc.) never applies to them, so hide it.
+                const scheduleLegendGuest = document.getElementById('scheduleLegend');
+                if (scheduleLegendGuest) scheduleLegendGuest.classList.add('hidden');
             }
             window.renderAll();
         };
