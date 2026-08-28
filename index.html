@@ -1659,12 +1659,21 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             header.appendChild(btn);
         };
 
+        // Firestore SDK calls can hang indefinitely (seen in practice) instead of erroring out;
+        // race against a timeout so the UI always gives feedback instead of staying silent.
+        window.withTimeout = function(promise, ms = 8000) {
+            return Promise.race([
+                promise,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('หมดเวลาเชื่อมต่อ กรุณาลองใหม่')), ms)),
+            ]);
+        };
+
         window.openAdminResidents = async function() {
             let pendingSnap, approvedSnap, adminsSnap;
             try {
-                pendingSnap = await getDocs(query(collection(db, 'residents'), where('status', '==', 'pending')));
-                approvedSnap = await getDocs(query(collection(db, 'residents'), where('status', '==', 'approved')));
-                adminsSnap = await getDocs(collection(db, 'admins'));
+                pendingSnap = await window.withTimeout(getDocs(query(collection(db, 'residents'), where('status', '==', 'pending'))));
+                approvedSnap = await window.withTimeout(getDocs(query(collection(db, 'residents'), where('status', '==', 'approved'))));
+                adminsSnap = await window.withTimeout(getDocs(collection(db, 'admins')));
             } catch (e) {
                 console.error('openAdminResidents failed', e);
                 return window.showAlert("โหลดรายชื่อลูกบ้านไม่สำเร็จ: " + (e && e.message ? e.message : e), "danger");
