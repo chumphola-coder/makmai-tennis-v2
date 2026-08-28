@@ -1516,6 +1516,9 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         window.loadRoleAndStart = async function(user) {
             window.APP.user = user;
             window.APP.displayName = sessionStorage.getItem('line_display') || '';
+            // House-owner directory requires auth (Firestore rule), so it must load after sign-in,
+            // and before the registration modal (which looks up the typed house number) can open.
+            await window.loadHouseOwnerDB();
             try {
                 const adminSnap = await getDoc(doc(db, 'admins', user.uid));
                 const resSnap = await getDoc(doc(db, 'residents', user.uid));
