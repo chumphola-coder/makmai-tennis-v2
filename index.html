@@ -565,7 +565,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeFirestore, collection, doc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const config = (window.APP_CONFIG && window.APP_CONFIG.firebase) || {};
 
@@ -2805,7 +2805,9 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 window.showAlert("ยังไม่ได้ตั้งค่า config.js (Firebase)", "danger");
             }
             try {
-                app = initializeApp(config); auth = getAuth(app); db = getFirestore(app); collectionRef = collection(db, 'bookings');
+                // experimentalAutoDetectLongPolling: falls back to long-polling on networks/proxies
+                // that break the default WebChannel streaming transport (seen behind some corporate firewalls).
+                app = initializeApp(config); auth = getAuth(app); db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true }); collectionRef = collection(db, 'bookings');
             } catch (e) { console.error(e); window.showAlert("เริ่มต้น Firebase ไม่สำเร็จ", "danger"); }
 
             window.init(); window.updateLoginUI();
