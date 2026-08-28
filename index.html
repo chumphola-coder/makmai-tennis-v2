@@ -1660,9 +1660,15 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         };
 
         window.openAdminResidents = async function() {
-            const pendingSnap = await getDocs(query(collection(db, 'residents'), where('status', '==', 'pending')));
-            const approvedSnap = await getDocs(query(collection(db, 'residents'), where('status', '==', 'approved')));
-            const adminsSnap = await getDocs(collection(db, 'admins'));
+            let pendingSnap, approvedSnap, adminsSnap;
+            try {
+                pendingSnap = await getDocs(query(collection(db, 'residents'), where('status', '==', 'pending')));
+                approvedSnap = await getDocs(query(collection(db, 'residents'), where('status', '==', 'approved')));
+                adminsSnap = await getDocs(collection(db, 'admins'));
+            } catch (e) {
+                console.error('openAdminResidents failed', e);
+                return window.showAlert("โหลดรายชื่อลูกบ้านไม่สำเร็จ: " + (e && e.message ? e.message : e), "danger");
+            }
             const adminUids = new Set();
             adminsSnap.forEach(d => adminUids.add(d.id));
             const pending = []; approvedSnap.forEach(d => {}); 
