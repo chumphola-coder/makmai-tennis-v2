@@ -77,17 +77,19 @@
 </head>
 <body class="p-2 sm:p-4 md:p-8">
 
-    <!-- Shown immediately (before any Firebase/module JS loads) when returning from the LINE OAuth
-         redirect, so the guest landing page never flashes while the sign-in exchange is in flight. -->
-    <div id="lineAuthOverlay" class="hidden fixed inset-0 bg-white z-[9998] flex flex-col items-center justify-center gap-3">
-        <svg class="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <span class="text-slate-500 font-bold text-sm">กำลังเข้าสู่ระบบด้วย LINE...</span>
+    <!-- Shown immediately (before any Firebase/module JS loads, and using only plain inline CSS so it
+         doesn't depend on Tailwind's CDN compiler having run yet) when returning from the LINE OAuth
+         redirect, so the guest/login page never flashes while the sign-in exchange is in flight. -->
+    <div id="lineAuthOverlay" style="display:none; position:fixed; inset:0; background:#ffffff; z-index:99999; flex-direction:column; align-items:center; justify-content:center; gap:12px;">
+        <svg style="width:32px;height:32px;color:#2563eb;animation:lineAuthSpin 1s linear infinite;" fill="none" viewBox="0 0 24 24"><circle style="opacity:0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path style="opacity:0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <span style="color:#64748b;font-weight:700;font-size:14px;font-family:sans-serif;">กำลังเข้าสู่ระบบด้วย LINE...</span>
     </div>
+    <style>@keyframes lineAuthSpin { to { transform: rotate(360deg); } }</style>
     <script>
         if (new URLSearchParams(location.search).has('code')) {
-            document.getElementById('lineAuthOverlay').classList.remove('hidden');
+            document.getElementById('lineAuthOverlay').style.display = 'flex';
             // Safety net: never trap the user on a blank loading screen if something hangs.
-            setTimeout(() => document.getElementById('lineAuthOverlay')?.classList.add('hidden'), 15000);
+            setTimeout(() => { const el = document.getElementById('lineAuthOverlay'); if (el) el.style.display = 'none'; }, 15000);
         }
     </script>
 
@@ -1470,7 +1472,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             const params = new URLSearchParams(location.search);
             const code = params.get('code');
             if (!code) return;
-            const hideOverlay = () => document.getElementById('lineAuthOverlay')?.classList.add('hidden');
+            const hideOverlay = () => { const el = document.getElementById('lineAuthOverlay'); if (el) el.style.display = 'none'; };
             const cfg = window.APP_CONFIG || {};
             const savedState = sessionStorage.getItem('line_state');
             if (savedState && params.get('state') !== savedState) {
