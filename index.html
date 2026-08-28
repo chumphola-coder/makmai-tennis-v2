@@ -331,7 +331,12 @@
                             </div>
                         </div>
                         <div id="scheduleDayPills" class="flex gap-1.5 md:gap-2 overflow-x-auto pb-1 mb-3"></div>
-                        <div class="w-full overflow-x-auto">
+                        <div id="courtToggle" class="flex gap-1.5 mb-3 bg-slate-100 p-1 rounded-xl w-full sm:w-auto sm:inline-flex">
+                            <button type="button" data-court="all" onclick="window.setCourtFilter('all')" class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-[11px] md:text-xs font-bold transition-colors bg-white shadow-sm text-indigo-700">ทั้งหมด</button>
+                            <button type="button" data-court="สนาม 1" onclick="window.setCourtFilter('สนาม 1')" class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-[11px] md:text-xs font-bold transition-colors text-slate-500">สนาม 1</button>
+                            <button type="button" data-court="สนาม 2" onclick="window.setCourtFilter('สนาม 2')" class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-[11px] md:text-xs font-bold transition-colors text-slate-500">สนาม 2</button>
+                        </div>
+                        <div id="scheduleTableWrap" class="w-full overflow-x-auto">
                             <table class="w-full text-center border-collapse table-fixed min-w-[300px] md:min-w-[500px] border-separate" style="border-spacing: 0 6px;">
                                 <thead>
                                     <tr class="bg-slate-50 text-[10px] md:text-[11px] font-black text-slate-400 uppercase">
@@ -343,6 +348,7 @@
                                 <tbody id="scheduleGridBody"></tbody>
                             </table>
                         </div>
+                        <div id="scheduleCompactGrid" class="hidden grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5 md:gap-2"></div>
                     </div>
                 </div>
             </div>
@@ -1939,42 +1945,72 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             }
         };
 
+        // Per-court toggle: 'all' keeps the side-by-side table, a single court switches to a compact grid
+        window.scheduleCourtFilter = 'all';
+        window.setCourtFilter = function(court) {
+            window.scheduleCourtFilter = court;
+            ['all', 'สนาม 1', 'สนาม 2'].forEach(c => {
+                const btn = document.querySelector(`#courtToggle button[data-court="${c}"]`); if (!btn) return;
+                const active = c === court;
+                btn.classList.toggle('bg-white', active); btn.classList.toggle('shadow-sm', active);
+                btn.classList.toggle('text-indigo-700', active); btn.classList.toggle('text-slate-500', !active);
+            });
+            window.renderSchedule();
+        };
+
+        // Builds one slot's inner HTML; compact=true adds the time label since there's no separate time column
+        window.buildSlotTile = function(date, h, court, filtered, today, nowH, compact) {
+            const isP = (date < today) || (date === today && h < nowH);
+            const b = filtered.find(x => h >= parseInt((x.time||"0").split(':')[0],10) && h < parseInt((x.time||"0").split(':')[0],10) + Number(x.hours||1) && x.court === court);
+            let exc = (b && String(b.id) === String(window.highlightedBookingId)) ? 'ring-2 ring-offset-1 ring-amber-400 shadow-md scale-105 z-10 relative' : '';
+            const timeLabel = compact ? `<span class="text-[9px] font-mono opacity-70">${h}:00</span>` : '';
+            if (b) {
+                const fin = (date < today) || (date === today && nowH >= (parseInt(b.time.split(':')[0],10) + Number(b.hours)));
+                const hasSlip = window.hasSlip(b);
+                const expectedPrice = Number(b.totalPrice) || 0;
+                let scannedPrice = b.scannedAmount !== undefined ? Number(b.scannedAmount) : (hasSlip ? expectedPrice : 0);
+                if (b.isMultipleBooking) scannedPrice = expectedPrice;
+                let cls = 'slot-booked';
+                if (hasSlip) {
+                    if (fin) cls = 'slot-played';
+                    else if (scannedPrice < expectedPrice) cls = 'slot-underpaid';
+                    else if (scannedPrice > expectedPrice) cls = 'slot-overpaid';
+                    else cls = 'slot-paid';
+                }
+                return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} ${exc} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all">${timeLabel}<span class="truncate w-full text-center px-1">${b.customerName}</span><span class="text-[8px] md:text-[10px] font-medium opacity-90 mt-0.5">125/${b.address}</span></div>`;
+            } else if (isP) {
+                return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-sm slot-past flex flex-col items-center justify-center h-full gap-0.5">${timeLabel}<span>✕</span></div>`;
+            }
+            return `<div ${window.isLoggedIn ? `onclick="window.selectSlot('${date}', '${h}:00', '${court}')"` : ''} class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-sm font-bold slot-free transition-all flex flex-col items-center justify-center h-full gap-0.5 ${window.isLoggedIn ? 'cursor-pointer' : ''}">${timeLabel}<span>ว่าง</span></div>`;
+        };
+
         // --- 7. RENDER LOGIC ---
         window.renderSchedule = function() {
             const date = document.getElementById('scheduleDateInput').value; if (!date) return;
             window.renderDayPills();
-            const today = window.getThailandDate(), nowH = window.getThailandHour(), tbody = document.getElementById('scheduleGridBody'); tbody.innerHTML = '';
+            const today = window.getThailandDate(), nowH = window.getThailandHour();
             const filtered = window.allBookingsCache.filter(b => b.date === date);
-            for(let h=6; h<=20; h++) {
-                const tr = document.createElement('tr'); const isP = (date < today) || (date === today && h < nowH);
-                tr.innerHTML = `<td class="p-1 md:p-3 bg-slate-50 rounded-l-lg font-mono text-[10px] md:text-sm text-slate-500 font-bold text-center w-12 md:w-20 align-middle">${h}:00</td>`;
-                ["สนาม 1", "สนาม 2"].forEach((court, i) => {
-                    const b = filtered.find(x => h >= parseInt((x.time||"0").split(':')[0],10) && h < parseInt((x.time||"0").split(':')[0],10) + Number(x.hours||1) && x.court === court);
-                    const td = document.createElement('td'); td.className = `p-1 md:p-1.5 w-[40%] md:w-auto ${i === 1 ? 'rounded-r-lg' : ''}`;
-                    let exc = (b && String(b.id) === String(window.highlightedBookingId)) ? 'ring-2 ring-offset-1 ring-amber-400 shadow-md scale-105 z-10 relative' : '';
-                    if(b) {
-                        const fin = (date < today) || (date === today && nowH >= (parseInt(b.time.split(':')[0],10) + Number(b.hours)));
-                        const hasSlip = window.hasSlip(b);
-                        const expectedPrice = Number(b.totalPrice) || 0;
-                        let scannedPrice = b.scannedAmount !== undefined ? Number(b.scannedAmount) : (hasSlip ? expectedPrice : 0);
-                        
-                        if (b.isMultipleBooking) {
-                            scannedPrice = expectedPrice;
-                        }
-                        
-                        let cls = 'slot-booked';
-                        if (hasSlip) {
-                            if (fin) { cls = 'slot-played'; } 
-                            else if (scannedPrice < expectedPrice) { cls = 'slot-underpaid'; } 
-                            else if (scannedPrice > expectedPrice) { cls = 'slot-overpaid'; } 
-                            else { cls = 'slot-paid'; }
-                        }
-                        
-                        td.innerHTML = `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} ${exc} flex flex-col justify-center items-center leading-tight min-w-0 w-full overflow-hidden transition-all"><span class="truncate w-full text-center px-1">${b.customerName}</span><span class="text-[8px] md:text-[10px] font-medium opacity-90 mt-0.5">125/${b.address}</span></div>`;
-                    } else if(isP) td.innerHTML = `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-sm slot-past">✕</div>`;
-                    else { td.innerHTML = `<div ${window.isLoggedIn ? `onclick="window.selectSlot('${date}', '${h}:00', '${court}')"` : ''} class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-sm font-bold slot-free transition-all ${window.isLoggedIn ? 'cursor-pointer' : ''}">ว่าง</div>`; }
-                    tr.appendChild(td);
-                }); tbody.appendChild(tr);
+            const tableWrap = document.getElementById('scheduleTableWrap'), compactGrid = document.getElementById('scheduleCompactGrid');
+            const filter = window.scheduleCourtFilter || 'all';
+
+            if (filter === 'all') {
+                tableWrap.classList.remove('hidden'); compactGrid.classList.add('hidden');
+                const tbody = document.getElementById('scheduleGridBody'); tbody.innerHTML = '';
+                for(let h=6; h<=20; h++) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td class="p-1 md:p-3 bg-slate-50 rounded-l-lg font-mono text-[10px] md:text-sm text-slate-500 font-bold text-center w-12 md:w-20 align-middle">${h}:00</td>`;
+                    ["สนาม 1", "สนาม 2"].forEach((court, i) => {
+                        const td = document.createElement('td'); td.className = `p-1 md:p-1.5 w-[40%] md:w-auto ${i === 1 ? 'rounded-r-lg' : ''}`;
+                        td.innerHTML = window.buildSlotTile(date, h, court, filtered, today, nowH, false);
+                        tr.appendChild(td);
+                    }); tbody.appendChild(tr);
+                }
+            } else {
+                tableWrap.classList.add('hidden'); compactGrid.classList.remove('hidden');
+                compactGrid.innerHTML = '';
+                for (let h = 6; h <= 20; h++) {
+                    compactGrid.insertAdjacentHTML('beforeend', window.buildSlotTile(date, h, filter, filtered, today, nowH, true));
+                }
             }
         };
 
