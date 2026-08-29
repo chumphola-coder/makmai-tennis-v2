@@ -2052,8 +2052,9 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             const wrap2 = document.getElementById('scheduleDayPillsRow2');
             const selected = document.getElementById('scheduleDateInput').value;
             const today = window.getThailandDate();
-            const [ty, tm, td] = today.split('-').map(Number);
-            const start = new Date(ty, tm - 1, td); // rolling 2-week window starting today, split into two 7-day rows
+            // Row 1 = this calendar week (Mon-Sun), row 2 = next week - matches the resident
+            // advance-booking window (today through next week's Sunday), not a rolling 7-day window.
+            const start = window.getStartOfWeek(window.getWeekString(today));
             const abbr = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
             wrap.innerHTML = ''; if (wrap2) wrap2.innerHTML = '';
             for (let i = 0; i < 14; i++) {
