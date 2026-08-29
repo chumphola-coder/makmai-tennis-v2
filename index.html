@@ -1532,6 +1532,14 @@
                 if (!data.firebaseToken) throw new Error((data.error || 'no_token') + (data.detail ? (': ' + JSON.stringify(data.detail)) : ''));
                 if (data.displayName) sessionStorage.setItem('line_display', data.displayName);
                 await signInWithCustomToken(auth, data.firebaseToken);
+                // Load the role and update the UI ourselves, right here, BEFORE hiding the
+                // overlay below - waiting for onAuthStateChanged's callback to fire on its own
+                // left a gap where the overlay was already hidden but the page still showed the
+                // stale guest/login view for a moment (a visible flicker back to "logged out").
+                if (auth.currentUser) {
+                    window.__lastProcessedUid = auth.currentUser.uid;
+                    await window.loadRoleAndStart(auth.currentUser);
+                }
             } catch (e) {
                 console.error(e);
                 window.showAlert("เข้าสู่ระบบ LINE ไม่สำเร็จ: " + (e && e.message ? e.message : e), "danger");
@@ -3337,8 +3345,14 @@
                     // Bookings don't depend on role/approval status - start fetching them immediately
                     // instead of waiting for the role-check reads below to finish first.
                     window.startBookingsSnapshot();
-                    window.loadRoleAndStart(user);
+                    // handleLineRedirect already ran (and awaited) loadRoleAndStart directly for a
+                    // fresh LINE login - skip the redundant second run here for the same user.
+                    if (window.__lastProcessedUid !== user.uid) {
+                        window.__lastProcessedUid = user.uid;
+                        window.loadRoleAndStart(user);
+                    }
                 } else {
+                    window.__lastProcessedUid = null;
                     window.APP = { user: null, role: 'guest', house: null, ownerName: null, displayName: '', houseProfile: null };
                     window.isLoggedIn = false; window.adminMode = false;
                     window.updateLoginUI();
