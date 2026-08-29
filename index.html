@@ -2098,7 +2098,9 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
 
         // Builds one slot's inner HTML; compact=true adds the time label since there's no separate time column
         window.buildSlotTile = function(date, h, court, filtered, today, nowH, compact) {
-            const isP = (date < today) || (date === today && h < nowH);
+            // The CURRENT hour counts as already past once it starts - a slot for "right now" is
+            // walk-in territory, handled in person with admin (who can backdate-record it after).
+            const isP = (date < today) || (date === today && h <= nowH);
             const timeLabel = compact ? `<span class="text-[13px] md:text-[15px] font-black">${h}:00</span>` : '';;
 
             // Not-logged-in visitors never see booking details (name/plot/payment status) - just a real
@@ -2261,7 +2263,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
 
         window.toggleResidentSlot = function(date, hour, court) {
             const today = window.getThailandDate(), nowH = window.getThailandHour(), h = Number(hour);
-            if (date < today || (date === today && h < nowH)) return window.showAlert("ไม่สามารถจองเวลาย้อนหลังได้", "danger");
+            if (date < today || (date === today && h <= nowH)) return window.showAlert("ไม่สามารถจองเวลาย้อนหลังได้", "danger");
             if (date > window.getMaxBookableDate()) return window.showAlert("จองล่วงหน้าได้ถึงวันอาทิตย์ของสัปดาห์หน้าเท่านั้น", "warning");
 
             // One booking = one day (and one court). Switching date or court starts a fresh selection.
@@ -2331,7 +2333,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             btn.disabled = true; btn.innerText = 'กำลังบันทึก...';
             try {
                 const todayThaiStr = window.getThailandDate(), nowH = window.getThailandHour();
-                const hasPast = slots.some(s => s.date < todayThaiStr || (s.date === todayThaiStr && s.hour < nowH));
+                const hasPast = slots.some(s => s.date < todayThaiStr || (s.date === todayThaiStr && s.hour <= nowH));
                 if (hasPast) return window.showAlert("ไม่สามารถจองเวลาย้อนหลังได้", "danger");
                 const maxBookable = window.getMaxBookableDate();
                 if (slots.some(s => s.date > maxBookable)) { window.showAlert("จองล่วงหน้าได้ถึงวันอาทิตย์ของสัปดาห์หน้าเท่านั้น", "warning"); window.clearResidentSelection(); return; }
