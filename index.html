@@ -253,7 +253,7 @@
                                     ใบเสร็จหลายการจอง<br><span class="font-normal">(อนุญาตให้ยอดเงินสลิป มากกว่า ค่าจองรอบนี้ได้)</span>
                                 </label>
                             </div>
-                            <div class="text-[10px] md:text-[11px] text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1.5 mt-1">⚠️ การจองนี้ต้องชำระเงินและรอการยืนยันจากผู้ดูแลภายใน 2 ชั่วโมง มิฉะนั้นระบบจะลบการจองนี้โดยอัตโนมัติ</div>
+                            <div class="text-[10px] md:text-[11px] text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1.5 mt-1">⚠️ การจองนี้ต้องชำระเงินและรอการยืนยันจากผู้ดูแลภายใน 4 ชั่วโมง มิฉะนั้นระบบจะลบการจองนี้โดยอัตโนมัติ</div>
                         </div>
 
                         <div class="px-3 md:px-4 py-2 md:py-2.5 bg-slate-50 rounded-xl flex justify-between items-center border-2 border-dashed border-blue-100">
@@ -377,7 +377,7 @@
                                     <button type="button" id="residentConfirmBtn" onclick="window.confirmResidentBooking()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold shadow-lg">ยืนยันการจอง</button>
                                 </div>
                             </div>
-                            <div class="text-[10px] sm:text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 w-full text-center">⚠️ การจองนี้ต้องชำระเงินและรอการยืนยันจากผู้ดูแลภายใน 2 ชั่วโมง มิฉะนั้นระบบจะลบการจองนี้โดยอัตโนมัติ</div>
+                            <div class="text-[10px] sm:text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 w-full text-center">⚠️ การจองนี้ต้องชำระเงินและรอการยืนยันจากผู้ดูแลภายใน 4 ชั่วโมง มิฉะนั้นระบบจะลบการจองนี้โดยอัตโนมัติ</div>
                         </div>
                     </div>
                 </div>
@@ -3455,7 +3455,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         window.autoDeletePastUnpaid = async function() {
             const nowStr = `${window.getThailandDate()} ${window.getThailandHour().toString().padStart(2,'0')}:00`;
             const now = Date.now();
-            const EXPIRY_MS = 2 * 60 * 60 * 1000; // unpaid bookings expire 2h after they were created
+            const EXPIRY_MS = 4 * 60 * 60 * 1000; // unpaid bookings expire 4h after they were created
             for (const b of window.allBookingsCache) {
                 if (window.hasSlip(b) || b.isCustomerProfile) continue;
                 const playPassed = `${b.date} ${(b.time||"00:00").split(':')[0].padStart(2,'0')}:00` <= nowStr;
