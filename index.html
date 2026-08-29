@@ -1546,7 +1546,6 @@
             if (window.APP.role === 'unregistered') window.openRegisterModal();
             else if (window.APP.role === 'pending') window.showAlert("บัญชีของคุณรอผู้ดูแลอนุมัติ", "warning");
 
-            window.startBookingsSnapshot();
             if (window.APP.role === 'admin') setTimeout(() => window.checkAutoBackup(), 2000);
         };
 
@@ -3284,6 +3283,9 @@
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
+                    // Bookings don't depend on role/approval status - start fetching them immediately
+                    // instead of waiting for the role-check reads below to finish first.
+                    window.startBookingsSnapshot();
                     window.loadRoleAndStart(user);
                 } else {
                     window.APP = { user: null, role: 'guest', house: null, ownerName: null, displayName: '', houseProfile: null };
