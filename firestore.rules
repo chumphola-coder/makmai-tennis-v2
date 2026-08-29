@@ -34,9 +34,10 @@ service cloud.firestore {
     }
 
     // Fields a resident is NOT allowed to set or change on a booking.
+    // scannedAmount is intentionally NOT protected - residents self-upload/re-scan their own
+    // slips (honor system); only status=='confirmed' + confirmedBy remain admin-only formalities.
     function protectedUnchanged() {
       return request.resource.data.ownerUid == resource.data.ownerUid
-        && request.resource.data.get('scannedAmount', null) == resource.data.get('scannedAmount', null)
         && request.resource.data.get('confirmedBy', null) == resource.data.get('confirmedBy', null)
         && request.resource.data.status != 'confirmed';
     }
