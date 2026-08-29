@@ -186,7 +186,11 @@
         <div id="mainAppGrid" class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
             <!-- Left: Booking Form -->
             <div id="leftColumn" class="lg:col-span-4 no-print hidden">
-                <div class="glass-panel p-4 md:p-5 border border-slate-200 sticky top-4 w-full" id="bookingPanel">
+                <div class="glass-panel p-4 md:p-5 border-2 border-slate-200 sticky top-4 w-full transition-colors" id="bookingPanel">
+                    <div id="pastModeBanner" class="hidden items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-purple-100 border border-purple-300 text-purple-800 text-[11px] md:text-xs font-bold">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        กำลังบันทึกย้อนหลัง — เลือกได้เฉพาะวัน-เวลาที่ผ่านไปแล้ว และต้องแนบสลิปเท่านั้น
+                    </div>
                     <div class="flex justify-between items-center mb-3">
                         <h2 class="text-lg md:text-xl font-bold text-slate-700 transition-colors" id="formTitle">จองคอร์ตสนามเทนนิส</h2>
                         <button type="button" id="togglePastModeBtn" onclick="window.togglePastBookingMode()" class="px-2 md:px-3 py-1 md:py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] md:text-[11px] font-bold hover:bg-slate-200 transition-colors flex items-center gap-1 shadow-sm">
@@ -270,7 +274,7 @@
                             <span id="totalPriceDisplay" class="text-lg md:text-xl font-black text-blue-700">฿0</span>
                         </div>
 
-                        <button id="submitBtn" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 md:py-2.5 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 text-sm md:text-base">
+                        <button id="submitBtn" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 md:py-2.5 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 text-sm md:text-base">
                             <span>ยืนยันการจอง</span>
                         </button>
                     </form>
@@ -1958,18 +1962,27 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             window.isPastBookingMode = !window.isPastBookingMode;
             const fp = document.getElementById('dateInput')._flatpickr;
             const title = document.getElementById('formTitle'), btn = document.getElementById('togglePastModeBtn'), slipLabel = document.getElementById('slipFileName');
+            const panel = document.getElementById('bookingPanel'), banner = document.getElementById('pastModeBanner'), submitBtn = document.getElementById('submitBtn');
             const todayStr = window.getThailandDate();
             
             if (window.isPastBookingMode) {
                 title.innerText = "บันทึกย้อนหลัง";
                 title.classList.remove("text-slate-700"); title.classList.add("text-purple-700");
                 btn.classList.replace("bg-slate-100", "bg-purple-100"); btn.classList.replace("text-slate-600", "text-purple-700");
+                panel.classList.replace("border-slate-200", "border-purple-400");
+                panel.classList.add("bg-purple-50/40", "ring-4", "ring-purple-100");
+                banner.classList.remove("hidden"); banner.classList.add("flex");
+                submitBtn.classList.replace("bg-blue-600", "bg-purple-600"); submitBtn.classList.replace("hover:bg-blue-700", "hover:bg-purple-700");
                 fp.set("minDate", null); fp.set("maxDate", todayStr); fp.set("disable", []);
                 slipLabel.innerHTML = "อัพโหลดสลิปจ่ายเงิน <span class='text-red-500'>*(บังคับ)</span>";
             } else {
                 title.innerText = "จองคอร์ตสนามเทนนิส";
                 title.classList.remove("text-purple-700"); title.classList.add("text-slate-700");
                 btn.classList.replace("bg-purple-100", "bg-slate-100"); btn.classList.replace("text-purple-700", "text-slate-600");
+                panel.classList.replace("border-purple-400", "border-slate-200");
+                panel.classList.remove("bg-purple-50/40", "ring-4", "ring-purple-100");
+                banner.classList.add("hidden"); banner.classList.remove("flex");
+                submitBtn.classList.replace("bg-purple-600", "bg-blue-600"); submitBtn.classList.replace("hover:bg-purple-700", "hover:bg-blue-700");
                 const maxDateObj = new Date(); maxDateObj.setDate(maxDateObj.getDate() + 7);
                 const maxBS = `${maxDateObj.getFullYear()}-${String(maxDateObj.getMonth()+1).padStart(2,'0')}-${String(maxDateObj.getDate()).padStart(2,'0')}`;
                 fp.set("minDate", todayStr); fp.set("maxDate", null);
