@@ -3372,7 +3372,14 @@
                     window.APP = { user: null, role: 'guest', house: null, ownerName: null, displayName: '', houseProfile: null };
                     window.isLoggedIn = false; window.adminMode = false;
                     window.updateLoginUI();
-                    window.__revealApp();
+                    // If a fresh LINE redirect (?code=) is still being processed, DON'T reveal yet -
+                    // this callback correctly reports "no user" because signInWithCustomToken hasn't
+                    // completed yet, but revealing here would flash the guest/login page before
+                    // handleLineRedirect gets a chance to sign the user in. It reveals itself once
+                    // done (success or failure).
+                    if (!new URLSearchParams(location.search).has('code')) {
+                        window.__revealApp();
+                    }
                 }
             });
 
