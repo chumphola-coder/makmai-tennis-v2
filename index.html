@@ -3312,7 +3312,9 @@
             if (window._snapStarted || !collectionRef) return;
             window._snapStarted = true;
             const cutoffDate = window.getPrevQuarterStartDate();
-            onSnapshot(query(collectionRef, where('date', '>=', cutoffDate)), (snap) => {
+            const bookingsQuery = query(collectionRef, where('date', '>=', cutoffDate));
+
+            const applySnapshot = (snap) => {
                     window.allBookingsCache = [];
                     window.customerProfiles = []; 
                     snap.forEach(d => {
@@ -3355,7 +3357,16 @@
                             s.appendChild(opt); 
                         });
                     }
-                });
+            };
+
+            // A one-shot getDocs() resolves much faster than onSnapshot's first callback here,
+            // because forced long-polling (needed for corporate-proxy compatibility) makes
+            // establishing the persistent listener channel itself slow - a plain request doesn't
+            // pay that setup cost. Show real data immediately via getDocs, then attach the live
+            // listener right after for ongoing updates (its slower first callback is invisible
+            // since the UI already has data by the time it arrives).
+            getDocs(bookingsQuery).then(applySnapshot).catch(e => console.warn('initial bookings getDocs failed', e));
+            onSnapshot(bookingsQuery, applySnapshot);
         };
 
         window.autoDeletePastUnpaid = async function() {
