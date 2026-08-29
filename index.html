@@ -1537,16 +1537,20 @@
                 return;
             }
             const redirectUri = cfg.lineRedirectUri || (location.origin + location.pathname);
+            window.__perfMark('worker_fetch_start');
             try {
                 const res = await fetch(cfg.authWorkerUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code, redirectUri }),
                 });
+                window.__perfMark('worker_fetch_done');
                 const data = await res.json();
                 if (!data.firebaseToken) throw new Error((data.error || 'no_token') + (data.detail ? (': ' + JSON.stringify(data.detail)) : ''));
                 if (data.displayName) sessionStorage.setItem('line_display', data.displayName);
+                window.__perfMark('signin_start');
                 await signInWithCustomToken(auth, data.firebaseToken);
+                window.__perfMark('signin_done');
                 // Reveal the real (logged-in) page as soon as we know the user is authenticated -
                 // don't make them wait behind the spinner for the full role/admin-vs-resident
                 // check too. window.isLoggedIn=true here renders the general logged-in layout
