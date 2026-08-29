@@ -19,6 +19,10 @@
     
     <style>
         body { font-family: 'Kanit', sans-serif; background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 320px); color: #1e293b; overflow-x: hidden; }
+        /* Without this, mobile browsers can wait ~300ms after a quick/light tap to check for a
+           double-tap-zoom gesture before firing click - a firm press bypasses that ambiguity and
+           works immediately, but a quick tap can feel unresponsive or get swallowed entirely. */
+        button, a, [onclick] { touch-action: manipulation; }
         .glass-panel { background: #ffffff; border-radius: 1.25rem; box-shadow: 0 8px 24px -8px rgba(30, 41, 59, 0.10); border: 1px solid rgba(226, 232, 240, 0.8); transition: all 0.25s ease; }
         .table-scroll { max-height: 450px; overflow-y: auto; overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
 
