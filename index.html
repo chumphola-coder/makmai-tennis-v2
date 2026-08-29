@@ -404,17 +404,19 @@
                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
             </div>
             <h3 class="text-xl font-bold text-slate-800 mb-6">อัพโหลดสลิปชำระเงิน</h3>
-            <label class="flex items-center justify-center gap-3 mb-8 bg-slate-50 p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-blue-50 transition-colors">
+            <label class="flex items-center justify-center gap-3 mb-3 bg-slate-50 p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-blue-50 transition-colors">
                 <input type="checkbox" id="updateIsMultipleSlip" class="w-5 h-5 text-blue-600 rounded cursor-pointer focus:ring-blue-500">
                 <span class="text-sm font-bold text-slate-700 select-none text-left leading-tight">
                     ใบเสร็จหลายการจอง<br>
-                    <span class="text-[10px] text-slate-500 font-normal">(อนุญาตให้ยอดสลิปมากกว่าค่าจองได้)</span>
+                    <span class="text-[10px] text-slate-500 font-normal">(สลิปใบนี้จ่ายรวมหลายการจองพร้อมกัน ติ๊กแล้วอัพโหลดสลิปเดิมซ้ำทุกการจอง)</span>
                 </span>
             </label>
+            <p class="text-[10px] text-slate-400 text-left leading-tight mb-6 px-1">💡 ถ้าการจองนี้มีหลายสลิป (เช่น โอนเพิ่มภายหลังเพื่อขยายเวลา) ไม่ต้องติ๊กช่องด้านบน กด "เพิ่มสลิปใหม่" ซ้ำได้เรื่อยๆ ระบบจะรวมยอดจากทุกสลิปให้อัตโนมัติ</p>
             <div class="flex gap-3">
                 <button onclick="window.closeUploadPrompt()" class="flex-1 px-4 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">ยกเลิก</button>
                 <button onclick="document.getElementById('updateSlipInput').click();" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg">เลือกไฟล์รูป</button>
             </div>
+            <button onclick="window.deleteBookingFromUploadPrompt()" class="mt-4 text-xs font-bold text-red-500 hover:text-red-700 hover:underline">🗑️ หรือต้องการยกเลิกการจองนี้ กดที่นี่</button>
         </div>
     </div>
 
@@ -600,13 +602,15 @@
             <div class="no-print flex flex-col items-center justify-center gap-2 sm:gap-3 w-full p-3 sm:p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl relative z-10" onclick="event.stopPropagation();">
                 <label class="flex items-center gap-2 bg-white px-4 py-2 rounded-xl cursor-pointer shadow-md w-full md:w-auto justify-center hover:bg-blue-50 transition-colors">
                     <input type="checkbox" id="modalIsMultipleSlip" class="w-5 h-5 text-blue-600 rounded cursor-pointer focus:ring-blue-500" onchange="window.toggleMultipleBookingStatus(this.checked)">
-                    <span class="text-sm font-bold text-slate-700 select-none">ใบเสร็จหลายการจอง (เปลี่ยนสถานะ ชำระเกิน/ยอดไม่ครบ ➜ ชำระแล้ว)</span>
+                    <span class="text-sm font-bold text-slate-700 select-none">ใบเสร็จหลายการจอง (สลิปใบนี้จ่ายรวมหลายการจองพร้อมกัน → เปลี่ยนสถานะเป็น ชำระแล้ว)</span>
                 </label>
+                <p class="text-[10px] text-white/70 text-center px-2 -mt-1">💡 มีหลายสลิปเพราะโอนเพิ่มภายหลัง (ขยายเวลา)? ไม่ต้องติ๊กช่องนี้ กด "+ เพิ่มสลิปใหม่" ด้านล่างแทน ระบบจะรวมยอดให้อัตโนมัติ</p>
                 <div class="flex flex-wrap justify-center gap-2 sm:gap-3 w-full">
                     <button onclick="window.closeModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">ปิดหน้าต่าง</button>
                     <button id="btnConfirmPaymentModal" onclick="window.confirmPaymentInModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base hidden">✅ ยืนยันการชำระ</button>
                     <button id="btnChangeSlipModal" onclick="window.addMoreSlipInModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-50 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">+ เพิ่มสลิปใหม่</button>
                     <button id="btnRemoveSlipModal" onclick="window.removeCurrentSlipInModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-red-500 hover:bg-red-400 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">ลบรูปนี้</button>
+                    <button id="btnDeleteBookingModal" onclick="window.deleteBookingFromModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-red-800 hover:bg-red-700 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">🗑️ ลบการจองนี้</button>
                     <button type="button" onclick="window.print()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">พิมพ์ภาพ / PDF</button>
                 </div>
             </div>
@@ -2444,7 +2448,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                     tr.onclick = (e) => {
                         const cellIndex = e.target.closest('td') ? e.target.closest('td').cellIndex : -1;
                         if (cellIndex >= 0 && cellIndex <= 4) {
-                            window.syncScheduleToBooking(b, true);
+                            window.openBookingDetail(b.id);
                         }
                     };
                     
@@ -2616,11 +2620,33 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                     // Only admin can confirm payment, and only while it isn't already confirmed.
                     btnConfirm.classList.toggle('hidden', !(window.APP.role === 'admin' && b.status !== 'confirmed'));
                 }
+                const btnDeleteModal = document.getElementById('btnDeleteBookingModal');
+                if (btnDeleteModal) btnDeleteModal.classList.toggle('hidden', isP && !window.adminMode);
 
                 document.getElementById('slipModal').classList.add('modal-active'); 
             } else {
                 window.showAlert("ไม่พบรูปสลิป", "danger"); 
             }
+        };
+
+        // Lets a row click do something useful regardless of slip status: manage an existing
+        // slip, or jump straight to uploading one - avoids relying on tapping tiny icon buttons.
+        window.openBookingDetail = function(id) {
+            const b = window.allBookingsCache.find(x => String(x.id) === String(id)); if (!b) return;
+            if (window.hasSlip(b)) window.viewSlipFromId(id);
+            else window.triggerUploadSlip(id);
+        };
+
+        window.deleteBookingFromModal = async function() {
+            const id = window.currentViewingSlipId; if (!id) return;
+            window.closeModal();
+            await window.deleteBooking(id);
+        };
+
+        window.deleteBookingFromUploadPrompt = async function() {
+            const id = window.currentUploadId; if (!id) return;
+            window.closeUploadPrompt();
+            await window.deleteBooking(id);
         };
 
         // --- ADMIN: confirm payment + notify resident via LINE ---
