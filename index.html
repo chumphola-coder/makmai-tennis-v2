@@ -3509,11 +3509,36 @@
             // since the UI already has data by the time it arrives).
             window.__perfMark('bookings_getDocs_start');
             getDocs(bookingsQuery).then((snap) => { window.__perfMark('bookings_getDocs_done'); applySnapshot(snap); }).catch(e => console.warn('initial bookings getDocs failed', e));
+            // Debug-only, side-by-side comparison: fetch the SAME data via a plain REST call
+            // (no WebChannel/long-polling transport at all) to see whether the ~8-13s delay is
+            // really the forced-long-polling transport's setup cost, or just inherent to this
+            // query's size/cost regardless of transport. Doesn't affect the real app in any way.
+            if (window.__perfDebugOn) window.__testRestBookingsFetch(cutoffDate);
             let firstSnapshotSeen = false;
             onSnapshot(bookingsQuery, (snap) => {
                 if (!firstSnapshotSeen) { firstSnapshotSeen = true; window.__perfMark('bookings_onSnapshot_first'); }
                 applySnapshot(snap);
             });
+        };
+
+        // Debug-only diagnostic: times a plain fetch() against the Firestore REST API for the
+        // same bookings query, bypassing the SDK's WebChannel/long-polling transport entirely -
+        // lets us compare whether that transport itself is the bottleneck on a given device/network.
+        window.__testRestBookingsFetch = async function(cutoffDate) {
+            try {
+                window.__perfMark('bookings_rest_fetch_start');
+                const idToken = await auth.currentUser.getIdToken();
+                const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/(default)/documents:runQuery`;
+                const body = {
+                    structuredQuery: {
+                        from: [{ collectionId: 'bookings' }],
+                        where: { fieldFilter: { field: { fieldPath: 'date' }, op: 'GREATER_THAN_OR_EQUAL', value: { stringValue: cutoffDate } } },
+                    },
+                };
+                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` }, body: JSON.stringify(body) });
+                await res.json();
+                window.__perfMark('bookings_rest_fetch_done');
+            } catch (e) { console.warn('REST comparison fetch failed', e); }
         };
 
         window.autoDeletePastUnpaid = async function() {
