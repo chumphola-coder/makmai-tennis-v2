@@ -421,29 +421,7 @@
     </div>
 
     <!-- Login Modal -->
-    <div id="loginModal" class="fixed inset-0 bg-slate-900/80 z-[120] hidden items-center justify-center p-4">
-        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl text-center mx-2">
-            <div class="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-            </div>
-            <h3 class="text-2xl font-bold text-slate-800 mb-6">เข้าสู่ระบบจอง</h3>
-            <div class="space-y-4 text-left">
-                <div>
-                    <label class="text-xs font-bold text-slate-500 uppercase">รหัสผ่านสมาชิก</label>
-                    <input type="password" id="loginPass" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" onkeydown="if(event.key === 'Enter') window.processLogin()">
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-slate-500 uppercase">Gemini API Key</label>
-                    <input type="password" id="geminiKeyInput" placeholder="กรอก API Key (ไม่บังคับ)..." class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 shadow-inner" onkeydown="if(event.key === 'Enter') window.processLogin()">
-                    <p id="geminiKeyHint" class="text-[10px] text-emerald-600 font-bold mt-2">✨ ระบบจะจำคีย์ไว้ในเบราว์เซอร์ให้อัตโนมัติ (แสดงเป็น * เพื่อความปลอดภัย)</p>
-                </div>
-                <div class="flex gap-3 pt-4">
-                    <button onclick="window.closeLoginModal()" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 transition-colors text-slate-600 rounded-xl font-bold">ยกเลิก</button>
-                    <button onclick="window.processLogin()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 transition-colors text-white rounded-xl font-bold shadow-lg">ยืนยัน</button>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     <!-- Export Excel Modal -->
     <div id="exportExcelModal" class="fixed inset-0 bg-slate-900/90 z-[100] hidden flex-col items-center justify-center p-4">
@@ -665,7 +643,6 @@
             window.updateLoginUI();
             window.renderAdminApproveButton();
         };
-        window.geminiKey = safeStorage.getItem('gemini_api_key') || '';
         window.currentFilterWeek = '';
         window.allBookingsCache = [];
         window.customerProfiles = []; 
@@ -1399,61 +1376,6 @@
         };
 
 
-        // --- 4. OCR AI SCAN FUNCTION ---
-        window.scanSlipAmountWithAI = async function(base64String) {
-            const apiKey = window.geminiKey || "";
-            const modelName = apiKey ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
-            
-            try {
-                const base64Data = base64String.includes(',') ? base64String.split(',')[1] : base64String;
-                const prompt = `You are an expert OCR system for Thai bank transfer slips.
-Extract the final transfer amount. Look specifically for the number associated with the keyword "บาท" (Baht) or total amount.
-Ignore account numbers, reference numbers, dates, or available balances.
-Respond strictly in JSON format with a single key "amount" containing the numerical value.
-Example: {"amount": 1500.50}
-If you absolutely cannot find the amount, return {"amount": 0}`;
-                
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000); 
-                
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: "image/jpeg", data: base64Data } }] }],
-                        generationConfig: { temperature: 0, responseMimeType: "application/json" }
-                    }),
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-
-                if (response.ok) {
-                    const result = await response.json();
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                    if (text) {
-                        try {
-                            const parsed = JSON.parse(text);
-                            return Number(parsed.amount) || 0;
-                        } catch(e) {
-                            const match = text.replace(/,/g, '').match(/[0-9]+(\.[0-9]+)?/);
-                            if (match) return parseFloat(match[0]);
-                        }
-                    }
-                    return 0;
-                } else if (response.status === 429 || response.status === 503) {
-                    console.warn(`Gemini API Busy or Rate Limited (Status: ${response.status})`);
-                    return -1; 
-                } else {
-                    console.error("Gemini API Error:", response.status, await response.text());
-                    return -1; 
-                }
-            } catch (err) {
-                console.warn("Gemini Network/Timeout Error:", err.message);
-                return -1; 
-            }
-        };
-
         window.compressImage = (file) => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader(); reader.onerror = () => reject(new Error("อ่านไฟล์ไม่ได้")); reader.readAsDataURL(file);
@@ -1575,38 +1497,6 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             }
             history.replaceState({}, '', location.pathname);
             hideOverlay();
-        };
-
-        window.openLoginModal = () => {
-            document.getElementById('loginModal').classList.add('modal-active');
-            document.getElementById('geminiKeyInput').value = window.geminiKey || '';
-            document.getElementById('loginPass').value = '';
-            const hint = document.getElementById('geminiKeyHint');
-            if (hint) {
-                if (window.geminiKey) {
-                    hint.className = 'text-[10px] text-emerald-600 font-bold mt-2';
-                    hint.innerText = '✅ มี API Key บันทึกในเบราว์เซอร์นี้แล้ว (แสดงเป็น * เพื่อความปลอดภัย)';
-                } else {
-                    hint.className = 'text-[10px] text-amber-600 font-bold mt-2';
-                    hint.innerText = '⚠️ ยังไม่มี API Key — กรอกครั้งเดียวระบบจะจำให้อัตโนมัติ (ไม่บังคับ)';
-                }
-            }
-            setTimeout(() => document.getElementById('loginPass').focus(), 100);
-        };
-        
-        window.closeLoginModal = () => {
-            document.getElementById('loginModal').classList.remove('modal-active');
-        };
-
-        window.sha256 = async (message) => {
-            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(message));
-            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-        };
-
-        window.processLogin = async () => {
-            const key = document.getElementById('geminiKeyInput')?.value.trim();
-            if (key) { window.geminiKey = key; safeStorage.setItem('gemini_api_key', key); }
-            window.closeLoginModal();
         };
 
         // --- ROLE LOADING (admin / resident / pending / unregistered) ---
@@ -2731,7 +2621,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
             if (b && window.isBookingPast(b) && !window.adminMode) return window.showAlert("❌ ลบสลิปไม่ได้ (เลยเวลาแล้ว)", "danger"); 
             
             const isLast = window.currentSlipArray.length <= 1;
-            const msg = isLast ? "⚠️ ลบรูปสลิปใบสุดท้าย และเปลี่ยนสถานะเป็น 'ค้างชำระ' ใช่หรือไม่?" : "ยืนยันการลบรูปสลิปใบนี้?\nระบบจะทำการสแกนยอดเงินรวมใหม่";
+            const msg = isLast ? "⚠️ ลบรูปสลิปใบสุดท้าย และเปลี่ยนสถานะเป็น 'ค้างชำระ' ใช่หรือไม่?" : "ยืนยันการลบรูปสลิปใบนี้?";
             const confirmed = await window.customConfirm(msg, "ยืนยันการลบสลิป", "danger");
             if (!confirmed) return; 
             
@@ -2741,22 +2631,8 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 b.slips = [...window.currentSlipArray];
                 if (b.slip) b.slip = ""; 
 
-                if (b.slips.length === 0) {
-                    b.scannedAmount = 0;
-                } else {
-                    window.showAlert("กำลังอัปเดตยอดเงินรวมใหม่...", "warning");
-                    let newTotal = 0;
-                    let aiFailed = false;
-                    for (let slipData of b.slips) {
-                         const amt = Number(await window.scanSlipAmountWithAI(slipData));
-                         if (amt === -1) aiFailed = true;
-                         if (!isNaN(amt) && amt !== -1) newTotal += amt;
-                    }
-                    if (aiFailed || newTotal === 0) {
-                         newTotal = Number(b.totalPrice);
-                    }
-                    b.scannedAmount = newTotal;
-                }
+                // Honor system: any remaining slip keeps the booking trusted as paid in full.
+                b.scannedAmount = b.slips.length === 0 ? 0 : Number(b.totalPrice);
                 
                 await setDoc(doc(collectionRef, String(b.id)), b); 
                 
@@ -3179,46 +3055,17 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
 
                 let slipsArray = [];
                 let totalScannedAmount = 0;
-                let hasConnectionError = false;
                 
                 for(let i = 0; i < files.length; i++) {
-                    const compressedBase64 = await window.compressImage(files[i]);
-                    slipsArray.push(compressedBase64);
-                    const scannedAmt = Number(await window.scanSlipAmountWithAI(compressedBase64));
-                    if (scannedAmt === -1) { hasConnectionError = true; } else if (!isNaN(scannedAmt)) { totalScannedAmount += scannedAmt; }
+                    slipsArray.push(await window.compressImage(files[i]));
                 }
 
                 let implicitLightHours = 0, totalPrice = 0;
                 for(let i = 0; i < hours; i++) { if (startH + i >= 18) { totalPrice += 150; implicitLightHours++; } else totalPrice += 100; }
                 
-                if (files.length > 0) {
-                    if (hasConnectionError) {
-                        const confirmed = await window.customConfirm("⚠️ ระบบ AI ขัดข้อง หรืออินเทอร์เน็ตล่าช้าเกินไป\n\nหากกด [ตกลง] ระบบจะข้ามการตรวจสอบและบันทึกสถานะเป็น 'ชำระแล้ว' ให้ทันที\n\nยืนยันการจองเลยหรือไม่?", "ข้ามการตรวจสอบ AI?", "warning");
-                        if (!confirmed) { btn.disabled = false; btn.innerHTML = '<span>ยืนยันการจอง</span>'; return; }
-                        totalScannedAmount = totalPrice;
-                    } else if (totalScannedAmount === 0 || isNaN(totalScannedAmount)) {
-                        let alertMsg = `ระบบ AI ไม่สามารถอ่านยอดเงินจากสลิปได้ หรือยอดเป็น ฿0\n(ยอดที่ต้องชำระคือ ฿${totalPrice})\n\nหากกด [ตกลง] ระบบจะบันทึกสถานะเป็น 'ชำระแล้ว' ให้ทันที\n\nยืนยันการจองเลยหรือไม่?`;
-                        const confirmed = await window.customConfirm(alertMsg, "ข้ามการตรวจสอบ AI?", "warning");
-                        if (!confirmed) { btn.disabled = false; btn.innerHTML = '<span>ยืนยันการจอง</span>'; return; }
-                        totalScannedAmount = totalPrice;
-                    } else if (totalScannedAmount < totalPrice) {
-                        let alertMsg = `⚠️ ยอดโอนยังไม่ครบ!\nระบบ AI ตรวจพบยอดเงินในสลิปรวม: ฿${totalScannedAmount}\n(ยอดที่ต้องชำระคือ: ฿${totalPrice})\n\nคุณต้องการยืนยันการจองนี้หรือไม่?`;
-                        const confirmed = await window.customConfirm(alertMsg, "❌ ยอดโอนยังไม่ครบ", "danger");
-                        if (!confirmed) { btn.disabled = false; btn.innerHTML = '<span>ยืนยันการจอง</span>'; return; }
-                    } else if (totalScannedAmount > totalPrice) {
-                        if (isMultiple) {
-                            const confirmed = await window.customConfirm(`✅ ชำระแล้ว (ใบเสร็จหลายการจอง)\nระบบ AI ตรวจพบยอดเงินรวม ฿${totalScannedAmount}\n\nคุณต้องการยืนยันการจองนี้หรือไม่?`, "ตรวจสอบยอดเงินสำเร็จ", "success");
-                            if (!confirmed) { btn.disabled = false; btn.innerHTML = '<span>ยืนยันการจอง</span>'; return; }
-                        } else {
-                            let alertMsg = `⚠️ โอนเงินเกิน!\nระบบ AI ตรวจพบยอดเงินในสลิปรวม: ฿${totalScannedAmount}\n(ยอดที่ต้องชำระคือ: ฿${totalPrice})\n\nคุณต้องการยืนยันการจองนี้หรือไม่?`;
-                            const confirmed = await window.customConfirm(alertMsg, "⚠️ โอนเงินเกิน", "warning");
-                            if (!confirmed) { btn.disabled = false; btn.innerHTML = '<span>ยืนยันการจอง</span>'; return; }
-                        }
-                    } else {
-                        const confirmed = await window.customConfirm(`✅ ชำระแล้ว (ยอดเงินถูกต้อง)\nระบบ AI ตรวจพบยอดเงิน ฿${totalScannedAmount} ตรงกับยอดชำระพอดี\n\nคุณต้องการยืนยันการจองนี้หรือไม่?`, "ตรวจสอบยอดเงินสำเร็จ", "success");
-                        if (!confirmed) { btn.disabled = false; btn.innerHTML = '<span>ยืนยันการจอง</span>'; return; }
-                    }
-                }
+                // Honor system: any uploaded slip is trusted as paid in full - admin can still
+                // spot-check the actual slip photo/amount manually later if needed.
+                if (files.length > 0) totalScannedAmount = totalPrice;
                 
                 btn.innerHTML = '<span>กำลังบันทึกข้อมูล...</span>';
                 
@@ -3339,42 +3186,10 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                         existingSlips.push(compressedBase64);
                     }
 
-                    let totalScannedAmount = 0;
-                    let hasConnectionError = false;
-                    
-                    for(let i=0; i<existingSlips.length; i++) {
-                        const scannedAmt = Number(await window.scanSlipAmountWithAI(existingSlips[i]));
-                        if (scannedAmt === -1) { hasConnectionError = true; } else if (!isNaN(scannedAmt)) { totalScannedAmount += scannedAmt; }
-                    }
-                    
+                    // Honor system: any uploaded slip is trusted as paid in full - admin can still
+                    // spot-check the actual slip photo/amount manually later if needed.
                     const expectedPrice = Number(b.totalPrice);
-                    
-                    if (hasConnectionError) {
-                        const confirmed = await window.customConfirm("⚠️ ระบบ AI ขัดข้อง หรืออินเทอร์เน็ตล่าช้าเกินไป\n\nหากกด [ตกลง] ระบบจะข้ามการตรวจสอบและบันทึกสถานะเป็น 'ชำระแล้ว' ให้ทันที\n\nต้องการบันทึกสลิปเลยหรือไม่?", "ข้ามการตรวจสอบ AI?", "warning");
-                        if (!confirmed) { e.target.value = ''; window.currentUploadId = null; return; }
-                        totalScannedAmount = expectedPrice;
-                    } else if (totalScannedAmount === 0 || isNaN(totalScannedAmount)) {
-                        let alertMsg = `ระบบ AI ไม่สามารถอ่านยอดเงินจากสลิปได้ หรือยอดรวมเป็น ฿0\n(ยอดจองของรายการนี้คือ ฿${expectedPrice})\n\nหากกด [ตกลง] ระบบจะบันทึกสถานะเป็น 'ชำระแล้ว' ให้ทันที\n\nต้องการบันทึกสลิปเลยหรือไม่?`;
-                        const confirmed = await window.customConfirm(alertMsg, "ข้ามการตรวจสอบ AI?", "warning");
-                        if (!confirmed) { e.target.value = ''; window.currentUploadId = null; return; }
-                        totalScannedAmount = expectedPrice;
-                    } else if (totalScannedAmount < expectedPrice) {
-                        let alertMsg = `⚠️ ยอดโอนยังไม่ครบ!\nระบบ AI อ่านยอดเงินรวมจากสลิปทั้งหมดได้: ฿${totalScannedAmount}\n(ยอดจองของรายการนี้คือ ฿${expectedPrice})\n\nยืนยันการเพิ่มสลิปนี้หรือไม่?`;
-                        const confirmed = await window.customConfirm(alertMsg, "❌ ยอดโอนยังไม่ครบ", "danger");
-                        if (!confirmed) { e.target.value = ''; window.currentUploadId = null; return; }
-                    } else if (totalScannedAmount > expectedPrice) {
-                        if (isMultiple) {
-                            const confirmed = await window.customConfirm(`✅ ชำระแล้ว (ใบเสร็จหลายการจอง)\nระบบ AI อ่านยอดเงินรวมได้ ฿${totalScannedAmount}\n\nยืนยันการเพิ่มสลิปนี้หรือไม่?`, "ตรวจสอบยอดเงินสำเร็จ", "success");
-                            if (!confirmed) { e.target.value = ''; window.currentUploadId = null; return; }
-                        } else {
-                            let alertMsg = `⚠️ โอนเงินเกิน!\nระบบ AI อ่านยอดเงินรวมจากสลิปทั้งหมดได้: ฿${totalScannedAmount}\n(ยอดจองของรายการนี้คือ ฿${expectedPrice})\n\nยืนยันการเพิ่มสลิปนี้หรือไม่?`;
-                            const confirmed = await window.customConfirm(alertMsg, "⚠️ โอนเงินเกิน", "warning");
-                            if (!confirmed) { e.target.value = ''; window.currentUploadId = null; return; }
-                        }
-                    } else {
-                        const confirmed = await window.customConfirm(`✅ ชำระแล้ว (ยอดเงินถูกต้อง)\nระบบ AI อ่านยอดเงินรวมได้ ฿${totalScannedAmount} ตรงกับยอดชำระพอดี\n\nยืนยันการเพิ่มสลิปนี้หรือไม่?`, "ตรวจสอบยอดเงินสำเร็จ", "success");
-                        if (!confirmed) { e.target.value = ''; window.currentUploadId = null; return; }
-                    }
+                    const totalScannedAmount = expectedPrice;
 
                     b.isMultipleBooking = isMultiple;
                     b.slips = existingSlips;

@@ -294,6 +294,15 @@ async function handleDebugLineToken(request, env, cors) {
   return jsonResponse({ status: res.status, body }, 200, cors);
 }
 
+// Reads the transferred amount off a payment slip photo via Gemini. Requires a valid Firebase
+// ID token (any signed-in user - residents self-upload their own slips) so the API key can't be
+// used as an open proxy by anyone who finds the worker URL. Returns { amount } where amount is
+// the scanned number, 0 if unreadable, or -1 on any error/rate-limit (client treats -1 as "skip").
+// REMOVED (2026-08-29): Gemini consistently rejected calls from this Worker with
+// "User location is not supported for the API use" (Cloudflare's egress IP gets geolocated to a
+// restricted region, unrelated to Thailand being a supported country) - confirmed unfixable
+// without exposing the API key client-side. Dropped in favor of an honor-system upload flow.
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
