@@ -3067,17 +3067,20 @@
                     // Residents aren't forced to upload here — the slip usually gets sent to admin via LINE
                     // instead, especially when it covers multiple bookings or one booking has several slips.
                     if (isCurrentHour && files.length === 0 && window.APP.role === 'admin') return window.showAlert("⚠️ การจองคอร์ตเล่นทันที จำเป็นต้องอัพโหลดสลิปด้วย");
-                    if (date > todayThaiStr) {
+                    // Advance vs walk-in classified the same way everywhere: >=24h notice before the
+                    // slot starts, not just "is the calendar date in the future" (a booking made at
+                    // 11pm for 6am tomorrow is walk-in by notice, even though the date itself is not today).
+                    if (window.isAdvanceResidentSlot(date, startH)) {
                         // Quota re-checked fresh from the SERVER (not the possibly-stale local cache)
                         // right before writing - same staleness class of bug that let a slot get
                         // double-booked could otherwise let a house sneak past its real quota.
                         const freshHouseSnapAdv = await getDocs(query(collectionRef, where('address', '==', cleanAddress)));
-                        const freshHouseCountAdv = []; freshHouseSnapAdv.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile && dd.date > todayThaiStr) freshHouseCountAdv.push(dd); });
+                        const freshHouseCountAdv = []; freshHouseSnapAdv.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile && dd.date > todayThaiStr && !window.isWalkInBookingDoc(dd)) freshHouseCountAdv.push(dd); });
                         if (freshHouseCountAdv.length >= 3) return window.showAlert(`❌ บ้านเลขที่ 125/${cleanAddress} จองล่วงหน้าเต็มโควต้า 3 ครั้งแล้ว`, "danger");
                     } else {
-                        // Walk-in (today): only one active/upcoming walk-in per house at a time - the
-                        // next one can only be booked once the current one has passed/finished.
-                        const freshHouseSnapWalkIn = await getDocs(query(collectionRef, where('address', '==', cleanAddress), where('date', '==', todayThaiStr)));
+                        // Walk-in (<24h notice): only one active/upcoming walk-in per house at a time on
+                        // that day - the next one can only be booked once the current one has passed/finished.
+                        const freshHouseSnapWalkIn = await getDocs(query(collectionRef, where('address', '==', cleanAddress), where('date', '==', date)));
                         const freshHouseTodayWalkIn = []; freshHouseSnapWalkIn.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile) freshHouseTodayWalkIn.push(dd); });
                         const existingWalkInToday = freshHouseTodayWalkIn.some(b => window.isWalkInBookingDoc(b) && !window.isBookingPast(b));
                         if (existingWalkInToday) return window.showAlert(`❌ บ้านเลขที่ 125/${cleanAddress} มีการจอง Walk-in ที่ยังไม่ถึงเวลาเล่นอยู่แล้ว (จองได้ครั้งถัดไปหลังหมดเวลานี้)`, "danger");
@@ -3189,14 +3192,14 @@
                 const existing = window.allBookingsCache.find(x => String(x.id) === idValue); if (!existing) return;
                 const cleanAddress = window.normalizeAddress(existing.address);
 
-                if (date > todayThaiStr && !window.adminMode) {
+                if (!window.adminMode && window.isAdvanceResidentSlot(date, startH)) {
                     // Quota re-checked fresh from the SERVER (not the possibly-stale local cache).
                     const freshHouseSnapEdit = await getDocs(query(collectionRef, where('address', '==', cleanAddress)));
-                    const freshHouseCountEdit = []; freshHouseSnapEdit.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile && dd.id !== idValue && dd.date > todayThaiStr) freshHouseCountEdit.push(dd); });
+                    const freshHouseCountEdit = []; freshHouseSnapEdit.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile && dd.id !== idValue && dd.date > todayThaiStr && !window.isWalkInBookingDoc(dd)) freshHouseCountEdit.push(dd); });
                     if (freshHouseCountEdit.length >= 3) return window.showAlert(`❌ บ้านเลขที่ 125/${cleanAddress} จองล่วงหน้าเต็มโควต้าแล้ว`, "danger");
-                } else if (date === todayThaiStr && !window.adminMode) {
-                    // Editing a booking TO today's date is a walk-in - same 1-per-day cap as everywhere else.
-                    const freshHouseSnapEditWalkIn = await getDocs(query(collectionRef, where('address', '==', cleanAddress), where('date', '==', todayThaiStr)));
+                } else if (!window.adminMode) {
+                    // Editing a booking to <24h notice is a walk-in - same 1-per-day cap as everywhere else.
+                    const freshHouseSnapEditWalkIn = await getDocs(query(collectionRef, where('address', '==', cleanAddress), where('date', '==', date)));
                     const freshHouseTodayEditWalkIn = []; freshHouseSnapEditWalkIn.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile && dd.id !== idValue) freshHouseTodayEditWalkIn.push(dd); });
                     const existingWalkInTodayEdit = freshHouseTodayEditWalkIn.some(b => window.isWalkInBookingDoc(b) && !window.isBookingPast(b));
                     if (existingWalkInTodayEdit) return window.showAlert(`❌ บ้านเลขที่ 125/${cleanAddress} มีการจอง Walk-in ที่ยังไม่ถึงเวลาเล่นอยู่แล้ว (จองได้ครั้งถัดไปหลังหมดเวลานี้)`, "danger");
