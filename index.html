@@ -1281,6 +1281,11 @@
 
         window.normalizeAddress = (addr) => String(addr || "").trim().replace(/^125\//, '').replace(/\s+/g, '').toLowerCase();
 
+        // Escapes user-controlled text (customer name, LINE display name, owner name, etc.) before
+        // it's inserted via innerHTML - without this, a crafted name/slip-related field could run
+        // arbitrary JS in another user's (e.g. admin's) browser session (stored XSS).
+        window.escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
         window.updateFileName = (input) => {
             const span = document.getElementById('slipFileName');
             if (input.files && input.files.length > 0) {
@@ -1676,7 +1681,7 @@
             const pendingList = pending.length
                 ? pending.map(r => `
                     <div class="flex items-center justify-between gap-2 border-b border-slate-100 py-2">
-                        <div class="text-sm"><b>${r.houseNumber}</b> — ${r.ownerName || ''}<div class="text-[11px] text-slate-400">${r.displayName || ''} · ${r.uid}</div></div>
+                        <div class="text-sm"><b>${window.escapeHtml(r.houseNumber)}</b> — ${window.escapeHtml(r.ownerName || '')}<div class="text-[11px] text-slate-400">${window.escapeHtml(r.displayName || '')} · ${window.escapeHtml(r.uid)}</div></div>
                         <div class="flex gap-2">
                             <button onclick="window.approveResident('${r.uid}')" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">อนุมัติ</button>
                             <button onclick="window.rejectResident('${r.uid}')" class="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold">ปฏิเสธ</button>
@@ -1687,7 +1692,7 @@
             const approvedList = approved.length
                 ? approved.map(r => `
                     <div class="flex items-center justify-between gap-2 border-b border-slate-100 py-2">
-                        <div class="text-sm"><b>${r.houseNumber}</b> — ${r.ownerName || ''}<div class="text-[11px] text-slate-400">${r.displayName || ''}</div></div>
+                        <div class="text-sm"><b>${window.escapeHtml(r.houseNumber)}</b> — ${window.escapeHtml(r.ownerName || '')}<div class="text-[11px] text-slate-400">${window.escapeHtml(r.displayName || '')}</div></div>
                         ${adminUids.has(r.uid)
                             ? '<span class="px-3 py-1.5 bg-slate-100 text-slate-400 rounded-lg text-xs font-bold">แอดมินอยู่แล้ว</span>'
                             : `<button onclick="window.promoteToAdmin('${r.uid}')" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold">⬆️ ตั้งเป็นแอดมิน</button>`}
@@ -2027,8 +2032,8 @@
                     return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all">${timeLabel}<span class="line-through opacity-80">ไม่ว่าง</span></div>`;
                 }
                 const statusText = { 'slot-booked': 'ค้างชำระ', 'slot-played': 'เล่นแล้ว', 'slot-underpaid': 'ยอดไม่ครบ', 'slot-overpaid': 'ชำระเกิน', 'slot-paid': 'จ่ายแล้ว' }[cls] || '';
-                const houseNo = b.address || '';
-                const nameHouseLine = `${b.customerName} ${houseNo}`;
+                const houseNo = window.escapeHtml(b.address || '');
+                const nameHouseLine = `${window.escapeHtml(b.customerName)} ${houseNo}`;
                 // Admin can manage any booking by tapping it; a resident can tap only their OWN
                 // booking (opens the same upload/view/delete popup used from the history list).
                 const isOwnBooking = window.isEffectivelyResident() && window.normalizeAddress(b.address) === window.normalizeAddress(window.APP.house || '');
@@ -2416,7 +2421,7 @@
                     
                     tr.innerHTML = `<td class="p-1 md:px-4 md:py-3 text-center font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} border-none">${seq++}</td>` +
                                    `<td class="p-1 md:px-4 md:py-3 border-none"><div class="font-bold text-[9px] sm:text-sm md:text-base font-mono mb-0.5 ${isP?'text-slate-500':'text-slate-900'}">${window.generateRef(b)}</div>${badge}</td>` +
-                                   `<td class="p-1 md:px-4 md:py-3 border-none"><div class="font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'}">${b.customerName}</div><div class="font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} mt-0.5">125/${b.address}</div></td>` +
+                                   `<td class="p-1 md:px-4 md:py-3 border-none"><div class="font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'}">${window.escapeHtml(b.customerName)}</div><div class="font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} mt-0.5">125/${window.escapeHtml(b.address)}</div></td>` +
                                    `${edH}` +
                                    `<td class="p-1 md:px-4 md:py-3 text-right font-black text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} border-none">฿${(Number(b.totalPrice)||0).toLocaleString()}</td>` +
                                    `${actH}`;
@@ -2894,7 +2899,7 @@
                 html += `<div class="w-[49%] mb-4 break-inside-avoid border border-slate-300 rounded-lg overflow-hidden"><h3 class="text-[10px] font-bold bg-slate-100 p-1 text-center border-b border-slate-300">${window.formatThaiDate(dS)}</h3><table class="w-full text-left text-[8px] border-collapse bg-white"><thead><tr class="bg-slate-50 text-slate-500"><th class="border-b border-r p-1 text-center w-8">เวลา</th><th class="border-b border-r p-1 text-center w-1/2">สนาม 1</th><th class="border-b p-1 text-center w-1/2">สนาม 2</th></tr></thead><tbody>`;
                 for(let h=6; h<=20; h++) {
                     const b1 = bks.find(b => b.court==="สนาม 1" && h>=parseInt((b.time||"0").split(':')[0],10) && h<parseInt((b.time||"0").split(':')[0],10)+Number(b.hours)), b2 = bks.find(b => b.court==="สนาม 2" && h>=parseInt((b.time||"0").split(':')[0],10) && h<parseInt((b.time||"0").split(':')[0],10)+Number(b.hours));
-                    const fS = (b) => !b ? '<div class="text-center text-slate-300">-</div>' : `<div class="flex flex-col pl-1"><span class="font-bold text-slate-800 truncate">${b.customerName}</span><span class="text-[7px] text-slate-500">125/${b.address} <span class="${window.hasSlip(b)?'text-blue-600':'text-orange-600'}">${window.hasSlip(b)?'(จ่าย)':'(ค้าง)'}</span></span></div>`;
+                    const fS = (b) => !b ? '<div class="text-center text-slate-300">-</div>' : `<div class="flex flex-col pl-1"><span class="font-bold text-slate-800 truncate">${window.escapeHtml(b.customerName)}</span><span class="text-[7px] text-slate-500">125/${window.escapeHtml(b.address)} <span class="${window.hasSlip(b)?'text-blue-600':'text-orange-600'}">${window.hasSlip(b)?'(จ่าย)':'(ค้าง)'}</span></span></div>`;
                     html += `<tr class="hover:bg-slate-50"><td class="border-b border-r p-1 text-center font-mono font-bold text-slate-400">${h}:00</td><td class="border-b border-r p-0.5 ${b1?(window.hasSlip(b1)?'bg-blue-50/50':'bg-orange-50/50'):''}">${fS(b1)}</td><td class="border-b p-0.5 ${b2?(window.hasSlip(b2)?'bg-blue-50/50':'bg-orange-50/50'):''}">${fS(b2)}</td></tr>`;
                 }
                 html += `</tbody></table></div>`;
@@ -2909,7 +2914,7 @@
             const b = window.allBookingsCache.find(x => String(x.id) === String(id)); if (!b) return window.showAlert("ไม่พบข้อมูล");
             const hrs = Number(b.hours||0), startH = parseInt((b.time||"00").split(':')[0],10); let std = 0, pk = 0;
             for(let i=0; i<hrs; i++) { if (startH+i >= 18) pk++; else std++; } const total = std*100 + pk*150;
-            const rHtml = (type) => `<div class="border border-slate-800 p-4 relative bg-white" style="page-break-inside: avoid;"><div class="flex justify-between items-start mb-2"><div class="flex items-start gap-2"><img src="แมกไม้พื้นหลังดำ.jpg" class="h-10 w-auto object-contain" onerror="this.style.display='none'"><div><h2 class="text-base font-black text-slate-800 leading-tight">MAKMAI TENNIS CLUB</h2><p class="text-[9px] font-bold text-slate-500">ใบเสร็จรับเงิน / Receipt</p></div></div><div class="text-right"><div class="text-[9px] font-bold text-slate-500 mb-0.5">${type==='copy'?'สำเนา':'ต้นฉบับ'}</div><div class="font-mono text-xs font-bold text-slate-700">#${window.generateRef(b)}</div><div class="text-[9px] font-medium">วันที่: ${window.formatThaiDate(window.getThailandDate())}</div></div></div><div class="border-t border-slate-800 py-1.5 my-1"><div class="mb-1.5"><h3 class="text-[9px] font-bold text-slate-800 border-b border-slate-300 pb-0.5 mb-1">ผู้มาใช้บริการ / Customer</h3><div class="grid grid-cols-2 gap-1 text-[11px]"><div><span class="text-slate-500">ผู้จอง:</span> <span class="font-bold">${b.customerName}</span></div><div><span class="text-slate-500">บ้านเลขที่:</span> <span class="font-bold">125/${b.address}</span></div><div><span class="text-slate-500">เจ้าของแปลง:</span> <span class="font-bold">${b.ownerName||'-'}</span></div></div></div><div><h3 class="text-[9px] font-bold text-slate-800 border-b border-slate-300 pb-0.5 mb-1">รายละเอียด / Booking</h3><div class="grid grid-cols-3 gap-1 text-[11px]"><div><span class="text-slate-500">สนาม:</span> <span class="font-bold">${b.court}</span></div><div><span class="text-slate-500">เริ่ม:</span> <span class="font-bold">${b.time} น.</span></div><div><span class="text-slate-500">เวลา:</span> <span class="font-bold">${b.hours} ชม.</span></div></div></div></div><div class="space-y-0.5 border-t border-slate-800 pt-1.5">${std>0?`<div class="flex justify-between text-[10px]"><span class="text-slate-600">ค่าสนาม 06:00-18:00 (${std} ชม.)</span><span class="font-mono font-bold">฿${std*100}</span></div>`:''}${pk>0?`<div class="flex justify-between text-[10px]"><span class="text-slate-600">ค่าสนาม 18:00-21:00 (${pk} ชม.)</span><span class="font-mono font-bold">฿${pk*150}</span></div>`:''}<div class="flex justify-between mt-1 pt-1 border-t border-slate-300"><span class="text-xs font-black text-slate-800">ยอดรวม / Total</span><span class="text-lg font-black text-slate-900 font-mono">฿${total}</span></div></div><div class="flex justify-end pt-8 mt-2"><div class="text-center w-28"><div class="border-b border-slate-400 mb-1 h-6"></div><span class="text-[8px] font-bold text-slate-500">ผู้รับเงิน / Recipient</span></div></div></div>`;
+            const rHtml = (type) => `<div class="border border-slate-800 p-4 relative bg-white" style="page-break-inside: avoid;"><div class="flex justify-between items-start mb-2"><div class="flex items-start gap-2"><img src="แมกไม้พื้นหลังดำ.jpg" class="h-10 w-auto object-contain" onerror="this.style.display='none'"><div><h2 class="text-base font-black text-slate-800 leading-tight">MAKMAI TENNIS CLUB</h2><p class="text-[9px] font-bold text-slate-500">ใบเสร็จรับเงิน / Receipt</p></div></div><div class="text-right"><div class="text-[9px] font-bold text-slate-500 mb-0.5">${type==='copy'?'สำเนา':'ต้นฉบับ'}</div><div class="font-mono text-xs font-bold text-slate-700">#${window.generateRef(b)}</div><div class="text-[9px] font-medium">วันที่: ${window.formatThaiDate(window.getThailandDate())}</div></div></div><div class="border-t border-slate-800 py-1.5 my-1"><div class="mb-1.5"><h3 class="text-[9px] font-bold text-slate-800 border-b border-slate-300 pb-0.5 mb-1">ผู้มาใช้บริการ / Customer</h3><div class="grid grid-cols-2 gap-1 text-[11px]"><div><span class="text-slate-500">ผู้จอง:</span> <span class="font-bold">${window.escapeHtml(b.customerName)}</span></div><div><span class="text-slate-500">บ้านเลขที่:</span> <span class="font-bold">125/${window.escapeHtml(b.address)}</span></div><div><span class="text-slate-500">เจ้าของแปลง:</span> <span class="font-bold">${window.escapeHtml(b.ownerName||'-')}</span></div></div></div><div><h3 class="text-[9px] font-bold text-slate-800 border-b border-slate-300 pb-0.5 mb-1">รายละเอียด / Booking</h3><div class="grid grid-cols-3 gap-1 text-[11px]"><div><span class="text-slate-500">สนาม:</span> <span class="font-bold">${b.court}</span></div><div><span class="text-slate-500">เริ่ม:</span> <span class="font-bold">${b.time} น.</span></div><div><span class="text-slate-500">เวลา:</span> <span class="font-bold">${b.hours} ชม.</span></div></div></div></div><div class="space-y-0.5 border-t border-slate-800 pt-1.5">${std>0?`<div class="flex justify-between text-[10px]"><span class="text-slate-600">ค่าสนาม 06:00-18:00 (${std} ชม.)</span><span class="font-mono font-bold">฿${std*100}</span></div>`:''}${pk>0?`<div class="flex justify-between text-[10px]"><span class="text-slate-600">ค่าสนาม 18:00-21:00 (${pk} ชม.)</span><span class="font-mono font-bold">฿${pk*150}</span></div>`:''}<div class="flex justify-between mt-1 pt-1 border-t border-slate-300"><span class="text-xs font-black text-slate-800">ยอดรวม / Total</span><span class="text-lg font-black text-slate-900 font-mono">฿${total}</span></div></div><div class="flex justify-end pt-8 mt-2"><div class="text-center w-28"><div class="border-b border-slate-400 mb-1 h-6"></div><span class="text-[8px] font-bold text-slate-500">ผู้รับเงิน / Recipient</span></div></div></div>`;
             document.getElementById('receiptContent').innerHTML = `<div class="flex flex-col gap-0">${rHtml('copy')}<div class="w-full py-4 relative flex items-center justify-center print:py-6"><div class="absolute w-full border-b-2 border-dashed border-slate-400 top-1/2"></div><span class="relative bg-white px-2 text-[8px] text-slate-500 font-mono z-10">✂ ตัดตามรอยประ</span></div>${rHtml('original')}</div>`;
             document.title = `${b.ownerName?b.ownerName.split(' ')[0]:b.customerName}_${window.generateRef(b).replace(/\//g,'-')}`;
             document.querySelector('#receiptModal > div').className = 'bg-white max-w-xl w-full relative flex flex-col items-center p-0 md:p-4 shadow-2xl';
@@ -3189,6 +3194,12 @@
                     const freshHouseSnapEdit = await getDocs(query(collectionRef, where('address', '==', cleanAddress)));
                     const freshHouseCountEdit = []; freshHouseSnapEdit.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile && dd.id !== idValue && dd.date > todayThaiStr) freshHouseCountEdit.push(dd); });
                     if (freshHouseCountEdit.length >= 3) return window.showAlert(`❌ บ้านเลขที่ 125/${cleanAddress} จองล่วงหน้าเต็มโควต้าแล้ว`, "danger");
+                } else if (date === todayThaiStr && !window.adminMode) {
+                    // Editing a booking TO today's date is a walk-in - same 1-per-day cap as everywhere else.
+                    const freshHouseSnapEditWalkIn = await getDocs(query(collectionRef, where('address', '==', cleanAddress), where('date', '==', todayThaiStr)));
+                    const freshHouseTodayEditWalkIn = []; freshHouseSnapEditWalkIn.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile && dd.id !== idValue) freshHouseTodayEditWalkIn.push(dd); });
+                    const existingWalkInTodayEdit = freshHouseTodayEditWalkIn.some(b => window.isWalkInBookingDoc(b) && !window.isBookingPast(b));
+                    if (existingWalkInTodayEdit) return window.showAlert(`❌ บ้านเลขที่ 125/${cleanAddress} มีการจอง Walk-in ที่ยังไม่ถึงเวลาเล่นอยู่แล้ว (จองได้ครั้งถัดไปหลังหมดเวลานี้)`, "danger");
                 }
 
                 const requested = Array.from({length: hours}, (_, i) => startH + i);
