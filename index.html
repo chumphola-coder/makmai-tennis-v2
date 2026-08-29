@@ -3383,6 +3383,7 @@
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
+                    window.__authFirstCallbackSeen = true;
                     window.__perfMark('auth_resolved');
                     // Bookings don't depend on role/approval status - start fetching them immediately
                     // instead of waiting for the role-check reads below to finish first.
@@ -3402,7 +3403,20 @@
                     // handleLineRedirect gets a chance to sign the user in. It reveals itself once
                     // done (success or failure).
                     if (!new URLSearchParams(location.search).has('code')) {
-                        window.__revealApp();
+                        // On some devices/networks, this listener's very FIRST callback after page
+                        // load can report `null` transiently, before a real persisted session
+                        // finishes restoring moments later (observed on a real device: null at
+                        // ~0.1s, then the actual logged-in user at ~9s) - trusting it immediately
+                        // flashes the wrong guest UI on every refresh for that user. Give ONLY this
+                        // first callback a short grace window to let a real user arrive before we
+                        // commit to revealing as guest; any LATER null (a real logout) still reveals
+                        // immediately, no delay.
+                        if (!window.__authFirstCallbackSeen) {
+                            window.__authFirstCallbackSeen = true;
+                            setTimeout(() => { if (!window.__initialAuthRevealed) window.__revealApp(); }, 2500);
+                        } else {
+                            window.__revealApp();
+                        }
                     }
                 }
             });
