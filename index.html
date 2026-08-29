@@ -625,9 +625,18 @@
         // Lightweight opt-in timing diagnostic for tracking down slow-login reports on specific
         // devices, without needing remote devtools access. Add ?debug=1 to the URL to show an
         // on-screen overlay of elapsed time (ms since script start) at each key login phase.
+        // Stashed in sessionStorage (like line_state/line_display below) because the LINE OAuth
+        // redirect_uri is fixed to location.pathname with no query string - ?debug=1 would
+        // otherwise be silently dropped the moment the user actually logs in via LINE.
         window.__perfStart = performance.now();
         window.__perfMarks = [];
-        window.__perfDebugOn = new URLSearchParams(location.search).has('debug');
+        if (new URLSearchParams(location.search).has('debug')) {
+            const debugVal = new URLSearchParams(location.search).get('debug');
+            try { if (debugVal === '0') sessionStorage.removeItem('perf_debug'); else sessionStorage.setItem('perf_debug', '1'); } catch (e) {}
+        }
+        let __perfDebugFromSession = false;
+        try { __perfDebugFromSession = sessionStorage.getItem('perf_debug') === '1'; } catch (e) {}
+        window.__perfDebugOn = __perfDebugFromSession;
         window.__perfMark = function(label) {
             const t = Math.round(performance.now() - window.__perfStart);
             window.__perfMarks.push(`${label}: ${t}ms`);
