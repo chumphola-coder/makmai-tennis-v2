@@ -679,9 +679,11 @@
         // can reach this for the same uid in a race (onAuthStateChanged's listener typically fires
         // DURING signInWithCustomToken, before its own awaited promise even resolves) - this
         // guard ensures loadRoleAndStart only ever actually runs once per uid, whichever gets here
-        // first. Reveals the general logged-in layout immediately; loadRoleAndStart refines it
-        // (admin buttons, resident locks, etc.) moments later once it resolves, same as booking
-        // data already fills in gradually.
+        // first. Does NOT reveal the app here - role isn't known yet at this point (admin vs
+        // resident get different layouts), so the loading overlay/spinner stays up until
+        // loadRoleAndStart actually resolves and calls __revealApp() itself. Keeps the earlier
+        // fast-reveal fix's win (bookings still start fetching immediately, in parallel, from
+        // onAuthStateChanged) while never showing a guessed/possibly-wrong layout.
         window.__lastProcessedUid = null;
         window.__triggerRoleLoad = function(user) {
             if (window.__lastProcessedUid === user.uid) return;
@@ -689,7 +691,6 @@
             window.isLoggedIn = true;
             window.roleLoading = true;
             window.updateLoginUI();
-            window.__revealApp();
             window.loadRoleAndStart(user);
         };
 
@@ -1575,17 +1576,18 @@
                 window.__perfMark('signin_start');
                 await signInWithCustomToken(auth, data.firebaseToken);
                 window.__perfMark('signin_done');
-                // onAuthStateChanged's own listener typically fires (and already runs
-                // window.__triggerRoleLoad below) DURING signInWithCustomToken, before this
-                // await even returns - so this is usually a no-op safety net, not the primary path.
+                // Reveal now happens once loadRoleAndStart (triggered via __triggerRoleLoad, either
+                // here or from onAuthStateChanged, whichever wins the race) actually resolves the
+                // real role - NOT immediately here, so the correct admin/resident layout is already
+                // known by the time the spinner comes down instead of guessing.
                 if (auth.currentUser) window.__triggerRoleLoad(auth.currentUser);
                 else window.__revealApp();
             } catch (e) {
                 console.error(e);
                 window.showAlert("เข้าสู่ระบบ LINE ไม่สำเร็จ: " + (e && e.message ? e.message : e), "danger");
+                window.__revealApp();
             }
             history.replaceState({}, '', location.pathname);
-            window.__revealApp();
         };
 
         // --- ROLE LOADING (admin / resident / pending / unregistered) ---
@@ -1621,6 +1623,8 @@
             window.isLoggedIn = (window.APP.role === 'admin' || window.APP.role === 'resident');
             window.roleLoading = false;
             window.updateLoginUI();
+            // Role is now actually known (admin vs resident) - safe to reveal the real layout.
+            window.__revealApp();
             window.renderAdminApproveButton();
 
             if (window.APP.role === 'unregistered') window.openRegisterModal();
