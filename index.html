@@ -622,6 +622,29 @@
 
         const config = (window.APP_CONFIG && window.APP_CONFIG.firebase) || {};
 
+        // Lightweight opt-in timing diagnostic for tracking down slow-login reports on specific
+        // devices, without needing remote devtools access. Add ?debug=1 to the URL to show an
+        // on-screen overlay of elapsed time (ms since script start) at each key login phase.
+        window.__perfStart = performance.now();
+        window.__perfMarks = [];
+        window.__perfDebugOn = new URLSearchParams(location.search).has('debug');
+        window.__perfMark = function(label) {
+            const t = Math.round(performance.now() - window.__perfStart);
+            window.__perfMarks.push(`${label}: ${t}ms`);
+            if (window.__perfDebugOn) {
+                console.log(`[perf] ${label}: ${t}ms`);
+                let el = document.getElementById('perfDebugOverlay');
+                if (!el) {
+                    el = document.createElement('div');
+                    el.id = 'perfDebugOverlay';
+                    el.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:99999;background:rgba(0,0,0,0.85);color:#0f0;font:11px monospace;padding:8px 10px;border-radius:8px;max-width:90vw;white-space:pre-wrap;';
+                    document.body.appendChild(el);
+                }
+                el.textContent = '⏱ PERF DEBUG\n' + window.__perfMarks.join('\n');
+            }
+        };
+        window.__perfMark('script_start');
+
         const safeStorage = (() => {
             let memory = {};
             try { localStorage.setItem('__t__', '1'); localStorage.removeItem('__t__'); return localStorage; } 
@@ -1521,12 +1544,6 @@
                     const d = resSnap.data();
                     window.APP.house = d.houseNumber || null;
                     window.APP.ownerName = d.ownerName || null;
-                    if (window.APP.house) {
-                        try {
-                            const hpSnap = await getDoc(doc(db, 'houseProfiles', window.APP.house));
-                            window.APP.houseProfile = hpSnap.exists() ? hpSnap.data() : null;
-                        } catch (e) { console.error('houseProfile load failed', e); window.APP.houseProfile = null; }
-                    }
                 }
                 if (adminSnap.exists()) {
                     window.APP.role = 'admin';
@@ -1536,6 +1553,7 @@
                     window.APP.role = 'unregistered';
                 }
             } catch (e) { console.error('role load failed', e); window.APP.role = 'unregistered'; }
+            window.__perfMark('role_loaded');
             window.applyResidentBookingLock();
 
             window.adminMode = (window.APP.role === 'admin');
@@ -1545,6 +1563,18 @@
 
             if (window.APP.role === 'unregistered') window.openRegisterModal();
             else if (window.APP.role === 'pending') window.showAlert("บัญชีของคุณรอผู้ดูแลอนุมัติ", "warning");
+
+            // Shared house customerName/phone prefill is a convenience only - fetch it in the
+            // background so it never blocks the schedule/list from rendering above. This was the
+            // one extra sequential round-trip residents always paid that admins (no resident doc)
+            // skip entirely - the likely cause of admin logins feeling faster than resident ones.
+            if (window.APP.house) {
+                getDoc(doc(db, 'houseProfiles', window.APP.house)).then((hpSnap) => {
+                    window.APP.houseProfile = hpSnap.exists() ? hpSnap.data() : null;
+                    window.applyResidentBookingLock();
+                    window.__perfMark('houseProfile_loaded');
+                }).catch((e) => { console.error('houseProfile load failed', e); window.APP.houseProfile = null; });
+            }
 
             if (window.APP.role === 'admin') setTimeout(() => window.checkAutoBackup(), 2000);
         };
@@ -3270,6 +3300,7 @@
 
         // --- 11. FIREBASE INITIALIZATION (LINE auth) ---
         window.initAuth = async function() {
+            window.__perfMark('initAuth_start');
             if (!config || String(config.apiKey || '').startsWith('REPLACE')) {
                 window.showAlert("ยังไม่ได้ตั้งค่า config.js (Firebase)", "danger");
             }
@@ -3283,6 +3314,7 @@
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
+                    window.__perfMark('auth_resolved');
                     // Bookings don't depend on role/approval status - start fetching them immediately
                     // instead of waiting for the role-check reads below to finish first.
                     window.startBookingsSnapshot();
@@ -3365,8 +3397,13 @@
             // pay that setup cost. Show real data immediately via getDocs, then attach the live
             // listener right after for ongoing updates (its slower first callback is invisible
             // since the UI already has data by the time it arrives).
-            getDocs(bookingsQuery).then(applySnapshot).catch(e => console.warn('initial bookings getDocs failed', e));
-            onSnapshot(bookingsQuery, applySnapshot);
+            window.__perfMark('bookings_getDocs_start');
+            getDocs(bookingsQuery).then((snap) => { window.__perfMark('bookings_getDocs_done'); applySnapshot(snap); }).catch(e => console.warn('initial bookings getDocs failed', e));
+            let firstSnapshotSeen = false;
+            onSnapshot(bookingsQuery, (snap) => {
+                if (!firstSnapshotSeen) { firstSnapshotSeen = true; window.__perfMark('bookings_onSnapshot_first'); }
+                applySnapshot(snap);
+            });
         };
 
         window.autoDeletePastUnpaid = async function() {
