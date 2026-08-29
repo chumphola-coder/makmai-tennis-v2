@@ -2248,8 +2248,14 @@
             const ts = b.timestamp || b.createdAt || 0;
             const [y, m, d] = String(b.date).split('-').map(Number);
             const bh = parseInt((b.time || '0').split(':')[0], 10);
-            const slotDT = new Date(y, m - 1, d, bh, 0, 0);
-            return (slotDT.getTime() - ts) / 3600000 < 24;
+            // Absolute UTC instant for "bh:00 on y-m-d, Thailand time (fixed UTC+7, no DST)" -
+            // must NOT use `new Date(y,m,d,bh,...)` here like isAdvanceResidentSlot does, because
+            // that's only safe when BOTH sides of a subtraction are built the same (local-interpreted)
+            // way so the browser's timezone offset cancels out. Here we compare against `ts`, a true
+            // absolute epoch from Date.now(), so the offset would NOT cancel - it would leak straight
+            // into the <24h check whenever the device's local timezone isn't Thailand's.
+            const slotUTCms = Date.UTC(y, m - 1, d, bh, 0, 0) - 7 * 3600000;
+            return (slotUTCms - ts) / 3600000 < 24;
         };
 
         window.toggleResidentSlot = function(date, hour, court) {
@@ -3162,7 +3168,8 @@
                         // right before writing - same staleness class of bug that let a slot get
                         // double-booked could otherwise let a house sneak past its real quota.
                         const freshHouseSnapAdv = await getDocs(query(collectionRef, where('address', '==', cleanAddress)));
-                        const freshHouseCountAdv = []; freshHouseSnapAdv.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile && dd.date > todayThaiStr && !window.isWalkInBookingDoc(dd)) freshHouseCountAdv.push(dd); });
+                        // Quota is per calendar week (Mon-Sun), not "all future bookings ever" - must scope by weekStr.
+                        const freshHouseCountAdv = []; freshHouseSnapAdv.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile && dd.date > todayThaiStr && window.getWeekString(dd.date) === weekStr && !window.isWalkInBookingDoc(dd)) freshHouseCountAdv.push(dd); });
                         if (freshHouseCountAdv.length >= 3) return window.showAlert(`❌ บ้านเลขที่ 125/${cleanAddress} จองล่วงหน้าเต็มโควต้า 3 ครั้งแล้ว`, "danger");
                     } else {
                         // Walk-in (<24h notice): only one active/upcoming walk-in per house at a time on
@@ -3282,7 +3289,8 @@
                 if (!window.adminMode && window.isAdvanceResidentSlot(date, startH)) {
                     // Quota re-checked fresh from the SERVER (not the possibly-stale local cache).
                     const freshHouseSnapEdit = await getDocs(query(collectionRef, where('address', '==', cleanAddress)));
-                    const freshHouseCountEdit = []; freshHouseSnapEdit.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile && dd.id !== idValue && dd.date > todayThaiStr && !window.isWalkInBookingDoc(dd)) freshHouseCountEdit.push(dd); });
+                    // Quota is per calendar week (Mon-Sun), not "all future bookings ever" - must scope by weekStr.
+                    const freshHouseCountEdit = []; freshHouseSnapEdit.forEach(d => { const dd = d.data(); if (!dd.isCustomerProfile && dd.id !== idValue && dd.date > todayThaiStr && window.getWeekString(dd.date) === weekStr && !window.isWalkInBookingDoc(dd)) freshHouseCountEdit.push(dd); });
                     if (freshHouseCountEdit.length >= 3) return window.showAlert(`❌ บ้านเลขที่ 125/${cleanAddress} จองล่วงหน้าเต็มโควต้าแล้ว`, "danger");
                 } else if (!window.adminMode) {
                     // Editing a booking to <24h notice is a walk-in - same 1-per-day cap as everywhere else.
