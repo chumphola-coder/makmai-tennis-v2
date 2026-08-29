@@ -2029,7 +2029,12 @@
                 const statusText = { 'slot-booked': 'ค้างชำระ', 'slot-played': 'เล่นแล้ว', 'slot-underpaid': 'ยอดไม่ครบ', 'slot-overpaid': 'ชำระเกิน', 'slot-paid': 'จ่ายแล้ว' }[cls] || '';
                 const houseNo = b.address || '';
                 const nameHouseLine = `${b.customerName} ${houseNo}`;
-                return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} ${exc} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all">${timeLabel}<span class="truncate w-full text-center px-1">${nameHouseLine}</span><span class="text-[8px] md:text-[9px] font-medium opacity-80 mt-0.5">${statusText}</span></div>`;
+                // Admin can manage any booking by tapping it; a resident can tap only their OWN
+                // booking (opens the same upload/view/delete popup used from the history list).
+                const isOwnBooking = window.isEffectivelyResident() && window.normalizeAddress(b.address) === window.normalizeAddress(window.APP.house || '');
+                const canOpenDetail = window.adminMode || isOwnBooking;
+                const clickAttr = canOpenDetail ? `onclick="window.openBookingDetail('${b.id}')"` : '';
+                return `<div ${clickAttr} class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} ${exc} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all ${canOpenDetail ? 'cursor-pointer' : ''}">${timeLabel}<span class="truncate w-full text-center px-1">${nameHouseLine}</span><span class="text-[8px] md:text-[9px] font-medium opacity-80 mt-0.5">${statusText}</span></div>`;
             } else if (isP) {
                 return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-sm slot-past flex flex-col items-center justify-center h-full gap-0.5">${timeLabel}<span>✕</span></div>`;
             }
@@ -2237,6 +2242,17 @@
 
                 const groupList = window.groupResidentSlotsByDateCourt(slots);
                 const cleanAddress = window.normalizeAddress(window.APP.house);
+
+                // Re-check directly against the SERVER (not the possibly-stale local cache) right
+                // before writing - closes the race window that let the same slot get double-booked
+                // (e.g. the local cache hadn't caught up yet with a booking made moments earlier).
+                const uniqueDateCourts = [...new Map(groupList.map(g => [`${g.date}|${g.court}`, g])).values()];
+                for (const g of uniqueDateCourts) {
+                    const freshSnap = await getDocs(query(collectionRef, where('date', '==', g.date), where('court', '==', g.court)));
+                    const freshBookings = []; freshSnap.forEach(d => freshBookings.push(d.data()));
+                    const conflict = slots.some(s => s.date === g.date && s.court === g.court && freshBookings.some(fb => s.hour >= parseInt((fb.time||"0").split(':')[0],10) && s.hour < parseInt((fb.time||"0").split(':')[0],10) + Number(fb.hours||1)));
+                    if (conflict) { window.showAlert("⚠️ บางช่วงเวลาถูกจองไปแล้ว กรุณาเลือกใหม่", "danger"); window.clearResidentSelection(); return; }
+                }
 
                 // Re-validate the 2h/booking cap (safety net against stale client state).
                 if (groupList.some(g => g.hours.length > 2)) { window.showAlert("จองได้สูงสุด 2 ชั่วโมงต่อการจอง 1 ครั้ง", "danger"); window.clearResidentSelection(); return; }
@@ -3053,6 +3069,12 @@
                 const requested = Array.from({length: hours}, (_, i) => startH + i);
                 if (window.allBookingsCache.filter(b => b.date === date && b.court === fd.get('court')).some(b => requested.some(s => s >= parseInt((b.time || "00").split(':')[0], 10) && s < parseInt((b.time || "00").split(':')[0], 10) + Number(b.hours || 1)))) return window.showAlert("❌ ช่วงเวลานี้ถูกจองแล้ว!", "danger");
 
+                // Re-check directly against the SERVER (not the possibly-stale local cache) right
+                // before writing - closes the race window that could otherwise double-book a slot.
+                const freshSnapAdmin = await getDocs(query(collectionRef, where('date', '==', date), where('court', '==', fd.get('court'))));
+                const freshBookingsAdmin = []; freshSnapAdmin.forEach(d => freshBookingsAdmin.push(d.data()));
+                if (freshBookingsAdmin.some(b => requested.some(s => s >= parseInt((b.time || "00").split(':')[0], 10) && s < parseInt((b.time || "00").split(':')[0], 10) + Number(b.hours || 1)))) return window.showAlert("❌ ช่วงเวลานี้ถูกจองแล้ว!", "danger");
+
                 let slipsArray = [];
                 let totalScannedAmount = 0;
                 
@@ -3155,6 +3177,12 @@
 
                 const requested = Array.from({length: hours}, (_, i) => startH + i);
                 if (window.allBookingsCache.filter(b => String(b.id) !== idValue && b.date === date && b.court === court).some(b => requested.some(s => s >= parseInt((b.time || "00").split(':')[0], 10) && s < parseInt((b.time || "00").split(':')[0], 10) + Number(b.hours || 1)))) return window.showAlert("❌ ช่วงเวลานี้ถูกจองแล้ว!", "danger");
+
+                // Re-check directly against the SERVER (not the possibly-stale local cache) right
+                // before writing - closes the race window that could otherwise double-book a slot.
+                const freshSnapEdit = await getDocs(query(collectionRef, where('date', '==', date), where('court', '==', court)));
+                const freshBookingsEdit = []; freshSnapEdit.forEach(d => freshBookingsEdit.push(d.data()));
+                if (freshBookingsEdit.some(b => String(b.id) !== idValue && requested.some(s => s >= parseInt((b.time || "00").split(':')[0], 10) && s < parseInt((b.time || "00").split(':')[0], 10) + Number(b.hours || 1)))) return window.showAlert("❌ ช่วงเวลานี้ถูกจองแล้ว!", "danger");
 
                 let implicitLightHours = 0, totalPrice = 0;
                 for(let i = 0; i < hours; i++) { if (startH + i >= 18) { totalPrice += 150; implicitLightHours++; } else totalPrice += 100; }
