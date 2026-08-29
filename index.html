@@ -52,7 +52,7 @@
         .slot-booked { background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
         .slot-paid { background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
         .slot-past { background-color: #f1f5f9; color: #94a3b8; cursor: not-allowed; border: 1px solid #e2e8f0; }
-        .slot-played { background-color: #FFFBEB; color: #92400E; border: 1px solid #FCD34D; }
+        .slot-played { background-color: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; }
         .slot-overpaid { background-color: #fae8ff; color: #7e22ce; border: 1px solid #d8b4fe; }
         .slot-underpaid { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
         
@@ -115,15 +115,12 @@
 
         <!-- Header -->
         <header class="app-hero flex flex-col md:flex-row justify-between items-center gap-1.5 md:gap-4 mb-2 md:mb-6 no-print p-2.5 md:p-6">
-            <div class="flex-1 w-full flex flex-row items-start justify-between gap-2 md:flex-col md:items-start text-left">
+            <div class="w-full md:w-auto flex flex-row items-start justify-between gap-2 md:flex-col md:items-start text-left">
                 <h1 class="text-lg md:text-3xl font-black text-white tracking-tight flex items-center gap-1.5 md:gap-2 shrink-0">
                     <span class="bg-white/20 backdrop-blur text-white p-1 md:p-1.5 rounded-lg md:rounded-xl">🎾</span> แมกไม้เทนนิสคลับ
                 </h1>
-                <p class="hidden md:block text-indigo-100 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1 mb-2 md:mb-3">Online Database System</p>
-                <div class="shrink-0 text-[9px] md:text-[11px] text-slate-700 font-medium bg-white/95 px-2 py-1 md:px-3 md:py-2 rounded-lg shadow-sm w-auto md:w-auto text-left leading-snug">
-                    <span class="text-indigo-600 font-bold block mb-0.5">ค่าบริการ:</span>
-                    06:00-18:00 ค่าสนาม 100 บ./ชม.<br>
-                    18:00-21:00 ค่าสนาม 150 บ./ชม.
+                <div class="text-indigo-100 text-[9px] md:text-xs font-bold whitespace-nowrap">
+                    ค่าบริการ: 06:00-18:00 ฿100/ชม. · 18:00-21:00 ฿150/ชม.
                 </div>
             </div>
 
@@ -134,21 +131,21 @@
             <div class="flex flex-1 justify-center md:justify-end gap-2 flex-wrap items-center w-full">
                 <!-- Row 1: reporting/export buttons (admin only) -->
                 <div id="mainActionButtons" class="hidden w-full md:w-auto">
-                    <div id="adminOnlyButtons" class="flex gap-2 flex-wrap hidden w-full justify-center md:w-auto md:justify-end">
-                        <button onclick="window.openExportModal()" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 flex items-center gap-2 transition-all shadow-lg shadow-green-900/20">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>
+                    <div id="adminOnlyButtons" class="flex gap-1.5 flex-nowrap overflow-x-auto hidden w-full justify-center md:w-auto md:justify-end">
+                        <button onclick="window.openExportModal()" class="shrink-0 px-2.5 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 flex items-center gap-1 transition-all shadow-lg shadow-green-900/20 whitespace-nowrap">
+                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>
                             📊 Excel
                         </button>
-                        <button onclick="window.printWeeklySchedule()" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 flex items-center gap-2 transition-all shadow-lg shadow-emerald-900/20">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <button onclick="window.printWeeklySchedule()" class="shrink-0 px-2.5 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 flex items-center gap-1 transition-all shadow-lg shadow-emerald-900/20 whitespace-nowrap">
+                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                             📄 พิมพ์ตาราง
                         </button>
-                        <button onclick="window.openBackupModal()" class="px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-bold hover:bg-amber-600 flex items-center gap-2 transition-all shadow-lg shadow-amber-900/20">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                        <button onclick="window.openBackupModal()" class="shrink-0 px-2.5 py-1.5 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 flex items-center gap-1 transition-all shadow-lg shadow-amber-900/20 whitespace-nowrap">
+                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
                             จัดการข้อมูล
                         </button>
-                        <button onclick="window.openReportModal()" class="px-4 py-2 bg-indigo-500 text-white rounded-xl text-sm font-bold hover:bg-indigo-400 flex items-center gap-2 transition-all shadow-lg shadow-indigo-900/20">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <button onclick="window.openReportModal()" class="shrink-0 px-2.5 py-1.5 bg-indigo-500 text-white rounded-xl text-xs font-bold hover:bg-indigo-400 flex items-center gap-1 transition-all shadow-lg shadow-indigo-900/20 whitespace-nowrap">
+                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                             รายงาน
                         </button>
                     </div>
@@ -333,13 +330,6 @@
                                 <input type="text" id="scheduleDateInput" class="bg-slate-50 border border-slate-200 rounded-lg px-2 md:px-4 py-1.5 md:py-2 text-sm md:text-lg font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 w-36 md:w-48 text-center shadow-sm cursor-pointer" placeholder="เลือกวันที่">
                             </div>
                             <div id="scheduleLegend" class="flex gap-1.5 md:gap-2 text-[9px] md:text-[10px] font-bold flex-wrap">
-                                <span class="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> ว่าง</span>
-                                <span class="flex items-center gap-1 bg-orange-50 text-orange-700 px-2 py-1 rounded-full"><span class="w-2 h-2 rounded-full bg-orange-500"></span> ค้างชำระ</span>
-                                <span class="flex items-center gap-1 bg-red-50 text-red-700 px-2 py-1 rounded-full"><span class="w-2 h-2 rounded-full bg-red-400"></span> ยอดไม่ครบ</span>
-                                <span class="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-full"><span class="w-2 h-2 rounded-full bg-blue-500"></span> จ่ายแล้ว</span>
-                                <span class="flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-1 rounded-full"><span class="w-2 h-2 rounded-full bg-purple-400"></span> ชำระเกิน</span>
-                                <span class="flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-1 rounded-full"><span class="w-2 h-2 rounded-full bg-amber-400"></span> เล่นแล้ว</span>
-                                <span class="flex items-center gap-1 bg-slate-100 text-slate-500 px-2 py-1 rounded-full"><span class="w-2 h-2 rounded-full bg-slate-400"></span> หมดเวลา</span>
                                 <span id="scheduleSlipNote" class="hidden items-center gap-1 bg-white text-indigo-700 px-2 py-1 rounded-full border border-indigo-100"><span class="font-black text-[11px] leading-none">*</span> สลิปสำหรับหลายการจอง</span>
                             </div>
                         </div>
@@ -2059,9 +2049,10 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         window.renderDayPills = function() {
             const wrap = document.getElementById('scheduleDayPills'); if (!wrap) return;
             const selected = document.getElementById('scheduleDateInput').value;
-            const start = window.getStartOfWeek(window.currentFilterWeek);
-            const abbr = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
             const today = window.getThailandDate();
+            const [ty, tm, td] = today.split('-').map(Number);
+            const start = new Date(ty, tm - 1, td); // rolling next-7-days window starting today, not the Mon-Sun calendar week
+            const abbr = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
             wrap.innerHTML = '';
             for (let i = 0; i < 7; i++) {
                 const d = new Date(start); d.setDate(d.getDate() + i);
@@ -2098,7 +2089,7 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
         // Builds one slot's inner HTML; compact=true adds the time label since there's no separate time column
         window.buildSlotTile = function(date, h, court, filtered, today, nowH, compact) {
             const isP = (date < today) || (date === today && h < nowH);
-            const timeLabel = compact ? `<span class="text-[9px] font-mono opacity-70">${h}:00</span>` : '';
+            const timeLabel = compact ? `<span class="text-[13px] md:text-[15px] font-black">${h}:00</span>` : '';;
 
             // Not-logged-in visitors never see booking details (name/plot/payment status) - just a real
             // (but possibly slightly stale) busy/free indicator sourced from a PII-free public mirror.
@@ -2129,7 +2120,10 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                 if (window.APP.role === 'pending') {
                     return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all">${timeLabel}<span class="line-through opacity-80">ไม่ว่าง</span></div>`;
                 }
-                return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} ${exc} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all">${timeLabel}<span class="truncate w-full text-center px-1">${b.customerName}</span><span class="text-[8px] md:text-[10px] font-medium opacity-90 mt-0.5">125/${b.address}</span></div>`;
+                const statusText = { 'slot-booked': 'ค้างชำระ', 'slot-played': 'เล่นแล้ว', 'slot-underpaid': 'ยอดไม่ครบ', 'slot-overpaid': 'ชำระเกิน', 'slot-paid': 'จ่ายแล้ว' }[cls] || '';
+                const houseNo = b.address || '';
+                const nameHouseLine = `${b.customerName} ${houseNo}`;
+                return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} ${exc} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all">${timeLabel}<span class="truncate w-full text-center px-1">${nameHouseLine}</span><span class="text-[8px] md:text-[9px] font-medium opacity-80 mt-0.5">${statusText}</span></div>`;
             } else if (isP) {
                 return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-sm slot-past flex flex-col items-center justify-center h-full gap-0.5">${timeLabel}<span>✕</span></div>`;
             }
