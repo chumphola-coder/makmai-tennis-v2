@@ -674,6 +674,24 @@
             if (el) el.style.display = 'none';
         };
 
+        // Single guarded entry point for "a user is authenticated, go load their role" - both
+        // handleLineRedirect (fresh LINE login) and onAuthStateChanged (persisted-session reload)
+        // can reach this for the same uid in a race (onAuthStateChanged's listener typically fires
+        // DURING signInWithCustomToken, before its own awaited promise even resolves) - this
+        // guard ensures loadRoleAndStart only ever actually runs once per uid, whichever gets here
+        // first. Reveals the general logged-in layout immediately; loadRoleAndStart refines it
+        // (admin buttons, resident locks, etc.) moments later once it resolves, same as booking
+        // data already fills in gradually.
+        window.__lastProcessedUid = null;
+        window.__triggerRoleLoad = function(user) {
+            if (window.__lastProcessedUid === user.uid) return;
+            window.__lastProcessedUid = user.uid;
+            window.isLoggedIn = true;
+            window.updateLoginUI();
+            window.__revealApp();
+            window.loadRoleAndStart(user);
+        };
+
         const safeStorage = (() => {
             let memory = {};
             try { localStorage.setItem('__t__', '1'); localStorage.removeItem('__t__'); return localStorage; } 
@@ -1551,20 +1569,11 @@
                 window.__perfMark('signin_start');
                 await signInWithCustomToken(auth, data.firebaseToken);
                 window.__perfMark('signin_done');
-                // Reveal the real (logged-in) page as soon as we know the user is authenticated -
-                // don't make them wait behind the spinner for the full role/admin-vs-resident
-                // check too. window.isLoggedIn=true here renders the general logged-in layout
-                // immediately; loadRoleAndStart refines it (admin buttons, resident locks, etc.)
-                // moments later once it resolves, same as booking data already fills in gradually.
-                if (auth.currentUser) {
-                    window.__lastProcessedUid = auth.currentUser.uid;
-                    window.isLoggedIn = true;
-                    window.updateLoginUI();
-                    window.__revealApp();
-                    window.loadRoleAndStart(auth.currentUser);
-                } else {
-                    window.__revealApp();
-                }
+                // onAuthStateChanged's own listener typically fires (and already runs
+                // window.__triggerRoleLoad below) DURING signInWithCustomToken, before this
+                // await even returns - so this is usually a no-op safety net, not the primary path.
+                if (auth.currentUser) window.__triggerRoleLoad(auth.currentUser);
+                else window.__revealApp();
             } catch (e) {
                 console.error(e);
                 window.showAlert("เข้าสู่ระบบ LINE ไม่สำเร็จ: " + (e && e.message ? e.message : e), "danger");
@@ -3370,23 +3379,10 @@
                     // Bookings don't depend on role/approval status - start fetching them immediately
                     // instead of waiting for the role-check reads below to finish first.
                     window.startBookingsSnapshot();
-                    // handleLineRedirect already ran loadRoleAndStart directly for a fresh LINE
-                    // login - skip the redundant second run here for the same user.
-                    if (window.__lastProcessedUid !== user.uid) {
-                        window.__perfMark('guard_passed_uid=' + String(user.uid).slice(-6) + '_last=' + String(window.__lastProcessedUid).slice(-6));
-                        window.__lastProcessedUid = user.uid;
-                        // Reveal the general logged-in layout immediately (a plain reload with an
-                        // already-persisted session) - don't make the user wait behind the spinner
-                        // for the full role check too, which can itself pay the same slow
-                        // first-Firestore-read cost as the bookings fetch. loadRoleAndStart refines
-                        // the UI (admin buttons, resident locks) moments later once it resolves.
-                        window.isLoggedIn = true;
-                        window.updateLoginUI();
-                        window.__revealApp();
-                        window.loadRoleAndStart(user);
-                    } else {
-                        window.__perfMark('guard_skipped_already_processed');
-                    }
+                    // Guarded so this only actually runs once per uid, whichever of this listener or
+                    // handleLineRedirect gets here first (they can both reach this for the same
+                    // fresh login, in a race).
+                    window.__triggerRoleLoad(user);
                 } else {
                     window.__lastProcessedUid = null;
                     window.APP = { user: null, role: 'guest', house: null, ownerName: null, displayName: '', houseProfile: null };
