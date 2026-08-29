@@ -3373,6 +3373,7 @@
                     // handleLineRedirect already ran loadRoleAndStart directly for a fresh LINE
                     // login - skip the redundant second run here for the same user.
                     if (window.__lastProcessedUid !== user.uid) {
+                        window.__perfMark('guard_passed_uid=' + String(user.uid).slice(-6) + '_last=' + String(window.__lastProcessedUid).slice(-6));
                         window.__lastProcessedUid = user.uid;
                         // Reveal the general logged-in layout immediately (a plain reload with an
                         // already-persisted session) - don't make the user wait behind the spinner
@@ -3383,6 +3384,8 @@
                         window.updateLoginUI();
                         window.__revealApp();
                         window.loadRoleAndStart(user);
+                    } else {
+                        window.__perfMark('guard_skipped_already_processed');
                     }
                 } else {
                     window.__lastProcessedUid = null;
