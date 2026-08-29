@@ -642,11 +642,15 @@
             window.__perfMarks.push(`${label}: ${t}ms`);
             if (window.__perfDebugOn) {
                 console.log(`[perf] ${label}: ${t}ms`);
+                // Mirrored into the browser TAB TITLE as a bulletproof fallback - the on-screen
+                // overlay can end up hidden behind a mobile browser's own bottom toolbar/chrome,
+                // but the tab title is always visible regardless of in-page layout quirks.
+                document.title = '⏱' + window.__perfMarks.map(m => m.replace(': ', '=').replace('ms', '')).join(' ');
                 let el = document.getElementById('perfDebugOverlay');
                 if (!el) {
                     el = document.createElement('div');
                     el.id = 'perfDebugOverlay';
-                    el.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:99999;background:rgba(0,0,0,0.85);color:#0f0;font:11px monospace;padding:8px 10px;border-radius:8px;max-width:90vw;white-space:pre-wrap;';
+                    el.style.cssText = 'position:fixed;top:8px;right:8px;z-index:2147483647;background:rgba(0,0,0,0.9);color:#0f0;font:13px monospace;padding:8px 10px;border-radius:8px;max-width:70vw;white-space:pre-wrap;pointer-events:none;';
                     document.body.appendChild(el);
                 }
                 el.textContent = '⏱ PERF DEBUG\n' + window.__perfMarks.join('\n');
@@ -3316,6 +3320,12 @@
             try {
                 // experimentalForceLongPolling: skips the WebChannel streaming transport entirely,
                 // since some corporate proxies/firewalls break it mid-stream (auto-detect didn't catch this).
+                // CONFIRMED 2026-08-29: tried switching to experimentalAutoDetectLongPolling to
+                // avoid forced long-polling's slow ~8-13s first-connection cost (seen on both a
+                // Xiaomi tablet AND an iPad via the ?debug=1 timing overlay) - a live test on this
+                // exact network showed onSnapshot never resolves at all under auto-detect (15s+
+                // timeout, zero response). The slow-but-working forced setting must stay; the
+                // 8-13s delay is a real, inherent cost of it, not a bug fixable by this switch.
                 app = initializeApp(config); auth = getAuth(app); db = initializeFirestore(app, { experimentalForceLongPolling: true }); collectionRef = collection(db, 'bookings');
             } catch (e) { console.error(e); window.showAlert("เริ่มต้น Firebase ไม่สำเร็จ", "danger"); }
 
