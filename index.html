@@ -687,6 +687,7 @@
             if (window.__lastProcessedUid === user.uid) return;
             window.__lastProcessedUid = user.uid;
             window.isLoggedIn = true;
+            window.roleLoading = true;
             window.updateLoginUI();
             window.__revealApp();
             window.loadRoleAndStart(user);
@@ -705,6 +706,11 @@
         // Lets a real admin preview the resident UI without a second test account.
         // UI-only: does not grant/remove any actual Firestore permission.
         window.previewAsResident = false;
+        // True from the moment a user is revealed (fast-reveal, before loadRoleAndStart resolves)
+        // until their real role is known - updateLoginUI treats this the same as "resident" so it
+        // defaults to the SAFE/restricted layout (no admin-only booking form/fields) instead of
+        // briefly showing the unrestricted admin layout to everyone regardless of real role.
+        window.roleLoading = false;
         window.isEffectivelyResident = function() {
             return window.APP.role === 'resident' || (window.APP.role === 'admin' && window.previewAsResident);
         };
@@ -1613,6 +1619,7 @@
 
             window.adminMode = (window.APP.role === 'admin');
             window.isLoggedIn = (window.APP.role === 'admin' || window.APP.role === 'resident');
+            window.roleLoading = false;
             window.updateLoginUI();
             window.renderAdminApproveButton();
 
@@ -1861,7 +1868,11 @@
                     previewBtn.textContent = window.previewAsResident ? '👁️ กลับสู่แอดมิน' : '👁️ พรีวิวมุมมองลูกบ้าน';
                 }
 
-                const isResident = window.isEffectivelyResident();
+                // While role is still loading (fast-reveal already happened, loadRoleAndStart hasn't
+                // resolved yet), default to the restricted/resident-style layout rather than the
+                // unrestricted admin one - avoids briefly showing admin-only booking fields to a
+                // resident on every single login while role is being determined.
+                const isResident = window.isEffectivelyResident() || window.roleLoading;
                 lc.classList.toggle('hidden', isResident);
                 rc.classList.toggle('lg:col-span-8', !isResident); rc.classList.toggle('lg:col-span-12', isResident);
 
