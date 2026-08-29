@@ -3138,6 +3138,11 @@ If you absolutely cannot find the amount, return {"amount": 0}`;
                     if (isCurrentHour && files.length === 0 && window.APP.role === 'admin') return window.showAlert("⚠️ การจองคอร์ตเล่นทันที จำเป็นต้องอัพโหลดสลิปด้วย");
                     if (date > todayThaiStr) {
                         if (window.allBookingsCache.filter(b => window.normalizeAddress(b.address) === cleanAddress && b.date > todayThaiStr).length >= 3) return window.showAlert(`❌ บ้านเลขที่ 125/${cleanAddress} จองล่วงหน้าเต็มโควต้า 3 ครั้งแล้ว`, "danger");
+                    } else {
+                        // Walk-in (today): only one active/upcoming walk-in per house at a time - the
+                        // next one can only be booked once the current one has passed/finished.
+                        const existingWalkInToday = window.allBookingsCache.some(b => !b.isCustomerProfile && window.normalizeAddress(b.address) === cleanAddress && b.date === todayThaiStr && window.isWalkInBookingDoc(b) && !window.isBookingPast(b));
+                        if (existingWalkInToday) return window.showAlert(`❌ บ้านเลขที่ 125/${cleanAddress} มีการจอง Walk-in ที่ยังไม่ถึงเวลาเล่นอยู่แล้ว (จองได้ครั้งถัดไปหลังหมดเวลานี้)`, "danger");
                     }
                 }
 
