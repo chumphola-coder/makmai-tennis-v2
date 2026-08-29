@@ -85,19 +85,19 @@
 <body class="p-2 sm:p-4 md:p-8">
 
     <!-- Shown immediately (before any Firebase/module JS loads, and using only plain inline CSS so it
-         doesn't depend on Tailwind's CDN compiler having run yet) when returning from the LINE OAuth
-         redirect, so the guest/login page never flashes while the sign-in exchange is in flight. -->
-    <div id="lineAuthOverlay" style="display:none; position:fixed; inset:0; background:#ffffff; z-index:99999; flex-direction:column; align-items:center; justify-content:center; gap:12px;">
+         doesn't depend on Tailwind's CDN compiler having run yet) on EVERY load, so the page never
+         flashes a "logged out" view first and then flips to the real logged-in state a moment later
+         (previously only shown for the LINE OAuth redirect case, which missed the same flicker
+         happening on a plain reload/relaunch while a session was already persisted). -->
+    <div id="lineAuthOverlay" style="display:flex; position:fixed; inset:0; background:#ffffff; z-index:99999; flex-direction:column; align-items:center; justify-content:center; gap:12px;">
         <svg style="width:32px;height:32px;color:#2563eb;animation:lineAuthSpin 1s linear infinite;" fill="none" viewBox="0 0 24 24"><circle style="opacity:0.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path style="opacity:0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <span style="color:#64748b;font-weight:700;font-size:14px;font-family:sans-serif;">กำลังเข้าสู่ระบบด้วย LINE...</span>
+        <span style="color:#64748b;font-weight:700;font-size:14px;font-family:sans-serif;">กำลังโหลด...</span>
     </div>
     <style>@keyframes lineAuthSpin { to { transform: rotate(360deg); } }</style>
     <script>
-        if (new URLSearchParams(location.search).has('code')) {
-            document.getElementById('lineAuthOverlay').style.display = 'flex';
-            // Safety net: never trap the user on a blank loading screen if something hangs.
-            setTimeout(() => { const el = document.getElementById('lineAuthOverlay'); if (el) el.style.display = 'none'; }, 15000);
-        }
+        // Safety net: never trap the user on a blank loading screen if something hangs -
+        // window.__revealApp (defined once the module script below runs) is the normal path.
+        setTimeout(() => { const el = document.getElementById('lineAuthOverlay'); if (el) el.style.display = 'none'; }, 15000);
     </script>
 
     <!-- Notification -->
@@ -661,6 +661,18 @@
             }
         };
         window.__perfMark('script_start');
+
+        // Reveals the app by hiding the full-screen loading overlay - only once the real login
+        // state (guest, resident, or admin) is fully known and already rendered underneath, so
+        // the page never flashes a "logged out" view first. Idempotent/safe to call more than once.
+        window.__initialAuthRevealed = false;
+        window.__revealApp = function() {
+            if (window.__initialAuthRevealed) return;
+            window.__initialAuthRevealed = true;
+            window.__perfMark('app_revealed');
+            const el = document.getElementById('lineAuthOverlay');
+            if (el) el.style.display = 'none';
+        };
 
         const safeStorage = (() => {
             let memory = {};
@@ -1517,12 +1529,11 @@
             const params = new URLSearchParams(location.search);
             const code = params.get('code');
             if (!code) return;
-            const hideOverlay = () => { const el = document.getElementById('lineAuthOverlay'); if (el) el.style.display = 'none'; };
             const cfg = window.APP_CONFIG || {};
             const savedState = sessionStorage.getItem('line_state');
             if (savedState && params.get('state') !== savedState) {
                 history.replaceState({}, '', location.pathname);
-                hideOverlay();
+                window.__revealApp();
                 return;
             }
             const redirectUri = cfg.lineRedirectUri || (location.origin + location.pathname);
@@ -1536,10 +1547,10 @@
                 if (!data.firebaseToken) throw new Error((data.error || 'no_token') + (data.detail ? (': ' + JSON.stringify(data.detail)) : ''));
                 if (data.displayName) sessionStorage.setItem('line_display', data.displayName);
                 await signInWithCustomToken(auth, data.firebaseToken);
-                // Load the role and update the UI ourselves, right here, BEFORE hiding the
-                // overlay below - waiting for onAuthStateChanged's callback to fire on its own
-                // left a gap where the overlay was already hidden but the page still showed the
-                // stale guest/login view for a moment (a visible flicker back to "logged out").
+                // Load the role and update the UI ourselves, right here, BEFORE revealing the app
+                // below - waiting for onAuthStateChanged's callback to fire on its own left a gap
+                // where the overlay was already hidden but the page still showed the stale
+                // guest/login view for a moment (a visible flicker back to "logged out").
                 if (auth.currentUser) {
                     window.__lastProcessedUid = auth.currentUser.uid;
                     await window.loadRoleAndStart(auth.currentUser);
@@ -1549,7 +1560,7 @@
                 window.showAlert("เข้าสู่ระบบ LINE ไม่สำเร็จ: " + (e && e.message ? e.message : e), "danger");
             }
             history.replaceState({}, '', location.pathname);
-            hideOverlay();
+            window.__revealApp();
         };
 
         // --- ROLE LOADING (admin / resident / pending / unregistered) ---
@@ -3350,16 +3361,18 @@
                     // instead of waiting for the role-check reads below to finish first.
                     window.startBookingsSnapshot();
                     // handleLineRedirect already ran (and awaited) loadRoleAndStart directly for a
-                    // fresh LINE login - skip the redundant second run here for the same user.
+                    // fresh LINE login - skip the redundant second run here for the same user, and
+                    // let ITS OWN reveal call be authoritative (don't reveal early from here).
                     if (window.__lastProcessedUid !== user.uid) {
                         window.__lastProcessedUid = user.uid;
-                        window.loadRoleAndStart(user);
+                        window.loadRoleAndStart(user).then(() => window.__revealApp());
                     }
                 } else {
                     window.__lastProcessedUid = null;
                     window.APP = { user: null, role: 'guest', house: null, ownerName: null, displayName: '', houseProfile: null };
                     window.isLoggedIn = false; window.adminMode = false;
                     window.updateLoginUI();
+                    window.__revealApp();
                 }
             });
 
