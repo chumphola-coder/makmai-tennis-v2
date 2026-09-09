@@ -1546,7 +1546,8 @@
                 + '&client_id=' + encodeURIComponent(cfg.lineChannelId)
                 + '&redirect_uri=' + encodeURIComponent(redirectUri)
                 + '&state=' + state
-                + '&scope=' + encodeURIComponent('profile openid');
+                + '&scope=' + encodeURIComponent('profile openid')
+                + '&bot_prompt=aggressive';
             location.href = url;
         };
 
