@@ -1573,7 +1573,6 @@
                 window.__perfMark('worker_fetch_done');
                 const data = await res.json();
                 if (!data.firebaseToken) throw new Error((data.error || 'no_token') + (data.detail ? (': ' + JSON.stringify(data.detail)) : ''));
-                if (data.debugFriendship) alert('DEBUG: ' + JSON.stringify(data.debugFriendship)); // TEMP-DEBUG, remove after diagnosing
                 if (data.displayName) sessionStorage.setItem('line_display', data.displayName);
                 window.__perfMark('signin_start');
                 await signInWithCustomToken(auth, data.firebaseToken);
