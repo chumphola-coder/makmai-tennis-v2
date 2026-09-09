@@ -138,7 +138,23 @@ async function getResidentDoc(uid, projectId, accessToken) {
     houseNumber: f.houseNumber?.stringValue || '',
     ownerName: f.ownerName?.stringValue || '',
     displayName: f.displayName?.stringValue || '',
+    lastAdminNotifyAt: f.lastAdminNotifyAt?.integerValue ? Number(f.lastAdminNotifyAt.integerValue) : 0,
   };
+}
+
+// Best-effort throttle marker so /notify-admins can't be spammed - failure here shouldn't
+// block the actual notification, just log and move on.
+async function markAdminNotifySent(uid, projectId, accessToken, whenMs) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/residents/${encodeURIComponent(uid)}?updateMask.fieldPaths=lastAdminNotifyAt`;
+  try {
+    await fetch(url, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { lastAdminNotifyAt: { integerValue: String(whenMs) } } }),
+    });
+  } catch (e) {
+    console.error('[markAdminNotifySent failed]', e);
+  }
 }
 
 async function listAdminUids(projectId, accessToken) {
@@ -147,6 +163,38 @@ async function listAdminUids(projectId, accessToken) {
   if (!res.ok) return [];
   const json = await res.json();
   return (json.documents || []).map((d) => d.name.split('/').pop());
+}
+
+async function getBookingDoc(bookingId, projectId, accessToken) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/bookings/${encodeURIComponent(bookingId)}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (res.status !== 200) return null;
+  const doc = await res.json();
+  const f = doc.fields || {};
+  return {
+    ownerUid: f.ownerUid?.stringValue || '',
+    houseNumber: f.houseNumber?.stringValue || f.address?.stringValue || '',
+    customerName: f.customerName?.stringValue || '',
+    date: f.date?.stringValue || '',
+    time: f.time?.stringValue || '',
+    court: f.court?.stringValue || '',
+    lastSlipNotifyAt: f.lastSlipNotifyAt?.integerValue ? Number(f.lastSlipNotifyAt.integerValue) : 0,
+  };
+}
+
+// Best-effort throttle marker so /notify-slip can't be spammed by repeated calls for the
+// same booking - failure here shouldn't block the actual notification, just log and move on.
+async function markSlipNotifySent(bookingId, projectId, accessToken, whenMs) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/bookings/${encodeURIComponent(bookingId)}?updateMask.fieldPaths=lastSlipNotifyAt`;
+  try {
+    await fetch(url, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { lastSlipNotifyAt: { integerValue: String(whenMs) } } }),
+    });
+  } catch (e) {
+    console.error('[markSlipNotifySent failed]', e);
+  }
 }
 
 async function pushLineMessage(lineUserId, text, channelAccessToken) {
@@ -162,6 +210,7 @@ async function pushLineMessage(lineUserId, text, channelAccessToken) {
 async function handleAuth(request, env, cors) {
   const { code, redirectUri } = await request.json();
   if (!code || !redirectUri) return jsonResponse({ error: 'missing_code_or_redirect' }, 400, cors);
+  if (redirectUri !== env.LINE_REDIRECT_URI) return jsonResponse({ error: 'redirect_uri_not_allowed' }, 400, cors);
 
   // 1) Exchange authorization code for LINE tokens.
   const tokenRes = await fetch('https://api.line.me/oauth2/v2.1/token', {
@@ -176,7 +225,10 @@ async function handleAuth(request, env, cors) {
     }),
   });
   const tokenJson = await tokenRes.json();
-  if (!tokenRes.ok || !tokenJson.id_token) return jsonResponse({ error: 'line_token_exchange_failed', detail: tokenJson }, 401, cors);
+  if (!tokenRes.ok || !tokenJson.id_token) {
+    console.error('[line_token_exchange_failed]', tokenJson);
+    return jsonResponse({ error: 'line_token_exchange_failed' }, 401, cors);
+  }
 
   // 2) Verify id_token with LINE and read the profile.
   const verifyRes = await fetch('https://api.line.me/oauth2/v2.1/verify', {
@@ -185,7 +237,10 @@ async function handleAuth(request, env, cors) {
     body: new URLSearchParams({ id_token: tokenJson.id_token, client_id: env.LINE_CHANNEL_ID }),
   });
   const profile = await verifyRes.json();
-  if (!verifyRes.ok || !profile.sub) return jsonResponse({ error: 'line_verify_failed', detail: profile }, 401, cors);
+  if (!verifyRes.ok || !profile.sub) {
+    console.error('[line_verify_failed]', profile);
+    return jsonResponse({ error: 'line_verify_failed' }, 401, cors);
+  }
 
   // 3) Mint a Firebase custom token bound to the LINE user id.
   const uid = `line:${profile.sub}`;
@@ -193,6 +248,8 @@ async function handleAuth(request, env, cors) {
 
   return jsonResponse({ firebaseToken, uid, displayName: profile.name || '', picture: profile.picture || '' }, 200, cors);
 }
+
+const MAX_NOTIFY_MESSAGE_LENGTH = 2000;
 
 async function handleNotify(request, env, cors) {
   const authHeader = request.headers.get('Authorization') || '';
@@ -204,7 +261,8 @@ async function handleNotify(request, env, cors) {
   try {
     callerUid = await verifyFirebaseIdToken(idToken, projectId);
   } catch (e) {
-    return jsonResponse({ error: 'invalid_id_token', detail: String(e) }, 401, cors);
+    console.error('[invalid_id_token]', e);
+    return jsonResponse({ error: 'invalid_id_token' }, 401, cors);
   }
 
   const accessToken = await getGoogleAccessToken(
@@ -218,6 +276,7 @@ async function handleNotify(request, env, cors) {
   const { targetUid, message } = await request.json();
   if (!targetUid || !message) return jsonResponse({ error: 'missing_target_or_message' }, 400, cors);
   if (!targetUid.startsWith('line:')) return jsonResponse({ error: 'target_not_a_line_user' }, 400, cors);
+  if (message.length > MAX_NOTIFY_MESSAGE_LENGTH) return jsonResponse({ error: 'message_too_long' }, 400, cors);
   const lineUserId = targetUid.slice('line:'.length);
 
   if (!env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN) {
@@ -225,7 +284,10 @@ async function handleNotify(request, env, cors) {
   }
 
   const push = await pushLineMessage(lineUserId, message, env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN);
-  if (!push.ok) return jsonResponse({ error: 'line_push_failed', status: push.status, detail: push.body }, 502, cors);
+  if (!push.ok) {
+    console.error('[line_push_failed]', push.status, push.body);
+    return jsonResponse({ error: 'line_push_failed', status: push.status }, 502, cors);
+  }
 
   return jsonResponse({ ok: true }, 200, cors);
 }
@@ -233,7 +295,10 @@ async function handleNotify(request, env, cors) {
 // Called right after a resident submits their house-registration request.
 // Any signed-in caller may trigger this (they aren't admin yet), but the message text is
 // built entirely server-side from their OWN resident doc — never from client input — so
-// this can't be abused to send arbitrary spam text to admins.
+// this can't be abused to send arbitrary spam text to admins. Throttled per-resident via
+// their own residents/{uid}.lastAdminNotifyAt so it can't be looped to spam every admin.
+const NOTIFY_ADMINS_COOLDOWN_MS = 5 * 60 * 1000;
+
 async function handleNotifyAdmins(request, env, cors) {
   const authHeader = request.headers.get('Authorization') || '';
   const idToken = authHeader.replace(/^Bearer\s+/i, '');
@@ -244,7 +309,8 @@ async function handleNotifyAdmins(request, env, cors) {
   try {
     callerUid = await verifyFirebaseIdToken(idToken, projectId);
   } catch (e) {
-    return jsonResponse({ error: 'invalid_id_token', detail: String(e) }, 401, cors);
+    console.error('[invalid_id_token]', e);
+    return jsonResponse({ error: 'invalid_id_token' }, 401, cors);
   }
 
   if (!env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN) {
@@ -260,38 +326,82 @@ async function handleNotifyAdmins(request, env, cors) {
   const resident = await getResidentDoc(callerUid, projectId, accessToken);
   if (!resident) return jsonResponse({ error: 'resident_not_found' }, 404, cors);
 
+  const now = Date.now();
+  if (resident.lastAdminNotifyAt && now - resident.lastAdminNotifyAt < NOTIFY_ADMINS_COOLDOWN_MS) {
+    return jsonResponse({ ok: true, throttled: true }, 200, cors);
+  }
+
   const text = `🔔 มีคำขอลงทะเบียนใหม่\nบ้านเลขที่ ${resident.houseNumber} (${resident.ownerName || resident.displayName || 'ไม่ทราบชื่อ'})\nกรุณาเข้าเว็บเพื่ออนุมัติ`;
   const adminUids = await listAdminUids(projectId, accessToken);
   let sent = 0;
-  const results = [];
   for (const uid of adminUids) {
     if (!uid.startsWith('line:')) continue;
     const push = await pushLineMessage(uid.slice('line:'.length), text, env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN);
     if (push.ok) sent++;
-    results.push({ uid, status: push.status, detail: push.body });
+    else console.error('[notify-admins push failed]', uid, push.status, push.body);
   }
+  await markAdminNotifySent(callerUid, projectId, accessToken, now);
 
-  return jsonResponse({ ok: true, notified: sent, adminCount: adminUids.length, results }, 200, cors);
+  return jsonResponse({ ok: true, notified: sent, adminCount: adminUids.length }, 200, cors);
 }
 
-// TEMP DEBUG — read-only check of whether LINE_MESSAGING_CHANNEL_ACCESS_TOKEN is valid at all
-// (doesn't send any message). Remove once the messaging secret is confirmed working.
-async function handleDebugLineToken(request, env, cors) {
+// Called right after a booking gets a slip attached (either at creation, or added later to an
+// existing booking). Only the booking's own owner, or an admin, may trigger it - the message
+// text is built entirely server-side from the booking's OWN Firestore fields, never from raw
+// client input - and it's throttled per-booking so repeated calls for the same booking (e.g.
+// re-opening to add more slip images) can't spam every admin.
+const NOTIFY_SLIP_COOLDOWN_MS = 2 * 60 * 1000;
+
+async function handleNotifySlip(request, env, cors) {
   const authHeader = request.headers.get('Authorization') || '';
   const idToken = authHeader.replace(/^Bearer\s+/i, '');
   if (!idToken) return jsonResponse({ error: 'missing_id_token' }, 401, cors);
-  try {
-    await verifyFirebaseIdToken(idToken, env.FIREBASE_PROJECT_ID);
-  } catch (e) {
-    return jsonResponse({ error: 'invalid_id_token', detail: String(e) }, 401, cors);
-  }
-  if (!env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN) return jsonResponse({ error: 'messaging_not_configured' }, 501, cors);
 
-  const res = await fetch('https://api.line.me/v2/bot/info', {
-    headers: { Authorization: `Bearer ${env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN}` },
-  });
-  const body = await res.text();
-  return jsonResponse({ status: res.status, body }, 200, cors);
+  const projectId = env.FIREBASE_PROJECT_ID;
+  let callerUid;
+  try {
+    callerUid = await verifyFirebaseIdToken(idToken, projectId);
+  } catch (e) {
+    console.error('[invalid_id_token]', e);
+    return jsonResponse({ error: 'invalid_id_token' }, 401, cors);
+  }
+
+  if (!env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN) {
+    return jsonResponse({ error: 'messaging_not_configured' }, 501, cors);
+  }
+
+  const { bookingId } = await request.json();
+  if (!bookingId) return jsonResponse({ error: 'missing_booking_id' }, 400, cors);
+
+  const accessToken = await getGoogleAccessToken(
+    'https://www.googleapis.com/auth/datastore',
+    env.FIREBASE_SA_EMAIL,
+    env.FIREBASE_SA_PRIVATE_KEY
+  );
+
+  const booking = await getBookingDoc(bookingId, projectId, accessToken);
+  if (!booking) return jsonResponse({ error: 'booking_not_found' }, 404, cors);
+
+  const admin = await isAdminUid(callerUid, projectId, accessToken);
+  if (booking.ownerUid !== callerUid && !admin) return jsonResponse({ error: 'not_owner' }, 403, cors);
+
+  const now = Date.now();
+  if (booking.lastSlipNotifyAt && now - booking.lastSlipNotifyAt < NOTIFY_SLIP_COOLDOWN_MS) {
+    return jsonResponse({ ok: true, throttled: true }, 200, cors);
+  }
+
+  const text = `📎 มีสลิปแนบใหม่รอตรวจสอบ\nบ้านเลขที่ ${booking.houseNumber} (${booking.customerName || 'ไม่ทราบชื่อ'})\nวันที่ ${booking.date} เวลา ${booking.time} สนาม ${booking.court}\nกรุณาเข้าเว็บเพื่อตรวจสอบและยืนยันการชำระ`;
+  const adminUids = await listAdminUids(projectId, accessToken);
+  let sent = 0;
+  for (const uid of adminUids) {
+    if (!uid.startsWith('line:')) continue;
+    const push = await pushLineMessage(uid.slice('line:'.length), text, env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN);
+    if (push.ok) sent++;
+    else console.error('[notify-slip push failed]', uid, push.status, push.body);
+  }
+  await markSlipNotifySent(bookingId, projectId, accessToken, now);
+
+  return jsonResponse({ ok: true, notified: sent, adminCount: adminUids.length }, 200, cors);
 }
 
 // Reads the transferred amount off a payment slip photo via Gemini. Requires a valid Firebase
@@ -316,10 +426,11 @@ export default {
     try {
       if (pathname === '/notify') return await handleNotify(request, env, cors);
       if (pathname === '/notify-admins') return await handleNotifyAdmins(request, env, cors);
-      if (pathname === '/debug-line-token') return await handleDebugLineToken(request, env, cors);
+      if (pathname === '/notify-slip') return await handleNotifySlip(request, env, cors);
       return await handleAuth(request, env, cors);
     } catch (err) {
-      return jsonResponse({ error: 'server_error', detail: String(err) }, 500, cors);
+      console.error('[server_error]', err);
+      return jsonResponse({ error: 'server_error' }, 500, cors);
     }
   },
 };
