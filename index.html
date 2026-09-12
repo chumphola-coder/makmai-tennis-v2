@@ -3312,7 +3312,7 @@
             try {
                 const b = window.allBookingsCache.find(x => String(x.id) === String(window.currentUploadId));
                 if (b) { 
-                    window.showAlert("กำลังใช้ AI สแกนและรวมยอดเงินของสลิปทั้งหมด...");
+                    window.showAlert("กำลังอัพโหลดสลิป...");
                     let existingSlips = window.getSlips(b); 
                     
                     for(let i=0; i<files.length; i++) {
