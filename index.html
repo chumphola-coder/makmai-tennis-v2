@@ -2332,8 +2332,18 @@
             // First slot tap of a new selection: the summary bar appears below the schedule grid,
             // which is often off-screen (below the fold) on mobile - scroll it into view automatically
             // instead of leaving the user to discover it needs a manual scroll down.
+            // Plain scrollIntoView({block:'end'}) isn't reliable on mobile Safari - it doesn't know
+            // about the browser's own bottom toolbar overlapping the page, so the button can still end
+            // up partially hidden behind it. Instead, measure the real visible viewport (visualViewport
+            // accounts for mobile browser chrome) and scroll by the exact amount needed, plus a margin.
             if (wasHidden) {
-                requestAnimationFrame(() => bar.scrollIntoView({ behavior: 'smooth', block: 'end' }));
+                requestAnimationFrame(() => {
+                    const rect = bar.getBoundingClientRect();
+                    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                    const margin = 24;
+                    const overflow = rect.bottom - (viewportHeight - margin);
+                    if (overflow > 0) window.scrollBy({ top: overflow, behavior: 'smooth' });
+                });
             }
         };
 
