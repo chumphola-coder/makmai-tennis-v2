@@ -2655,13 +2655,14 @@
         // slip, or jump straight to uploading one - avoids relying on tapping tiny icon buttons.
         window.openBookingDetail = function(id) {
             const b = window.allBookingsCache.find(x => String(x.id) === String(id)); if (!b) return;
-            // Admin clicking a booking record (e.g. from the history list) should also jump the
-            // schedule grid below to that booking's own date/court, not leave it wherever it was.
-            if (window.adminMode) {
-                const fp = document.getElementById('scheduleDateInput')?._flatpickr;
-                if (fp) fp.setDate(b.date, true);
-                window.setCourtFilter(b.court);
-            }
+            // Clicking a booking record (from the history list, admin or resident) should also jump
+            // the schedule grid below to that booking's own date/court, not leave it wherever it was.
+            // On mobile the schedule/list panels are tabs (only one visible at a time), so also
+            // switch to the schedule tab or the date/court change would happen off-screen unseen.
+            const fp = document.getElementById('scheduleDateInput')?._flatpickr;
+            if (fp) fp.setDate(b.date, true);
+            window.setCourtFilter(b.court);
+            window.setRightTab('schedule');
             if (window.hasSlip(b)) window.viewSlipFromId(id);
             else window.triggerUploadSlip(id);
         };
