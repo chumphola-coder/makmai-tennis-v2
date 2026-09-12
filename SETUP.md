@@ -1,5 +1,13 @@
 # makmai-tennis-v2 — คู่มือสมัครบัญชี & ตั้งค่า (สำหรับเจ้าของโปรเจกต์)
 
+> **สถานะปัจจุบัน (อัปเดต 2026-09-12): ตั้งค่าครบและใช้งานจริงแล้วทุกข้อ (1-8)** — เอกสารนี้เก็บไว้เป็นข้อมูลอ้างอิง/กู้คืนระบบ ไม่ใช่ขั้นตอนที่ต้องทำใหม่
+> - เว็บไซต์จริง: https://chumphola-coder.github.io/makmai-tennis-v2/
+> - Firebase project: `makmai-tennis-v2`
+> - LINE Login channel: `Makmai Tennis Login` (Channel ID `2011484812`)
+> - LINE OA (Messaging API): `แมกไม้ - แจ้งจองสนาม` (@194zuzqi) — ดูรายละเอียดเพิ่มเติมใน `LINE_OA_SETUP.md`
+> - Cloudflare Worker: `makmai-line-auth` (deploy แล้ว)
+> - Admin ปัจจุบัน: bootstrap ไว้แล้วหลายคนใน Firestore `admins` collection
+
 > โปรเจกต์ทดสอบ แยกจากของจริงทั้งหมด ของจริงไม่ถูกแตะ
 > **ผู้ช่วยเขียนโค้ดให้ / คุณทำตามขั้นตอนสมัครบัญชีด้านล่าง แล้วเอาค่ามากรอกใน `config.js` และ `worker/wrangler.toml`**
 
@@ -105,6 +113,7 @@ gh repo create makmai-tennis-v2 --public --source=. --remote=origin --push
 
 ## 8) LINE Official Account + Messaging API (สำหรับแจ้งเตือนอัตโนมัติเมื่อ admin ยืนยันการชำระ)
 > ส่วนนี้แยกจาก "LINE Login channel" ในข้อ 3 — ต้องสร้างเพิ่มอีกชิ้นหนึ่ง เพื่อให้โปรแกรม "ส่งข้อความ" หา LINE ของลูกบ้านได้ (ข้อ 3 ใช้แค่ "login" เท่านั้น ส่งข้อความเองไม่ได้)
+> **ทำเสร็จแล้ว** — ดูรายละเอียด/ประวัติ/เช็คลิสต์ปัจจุบันได้ที่ `LINE_OA_SETUP.md` (OA ปัจจุบัน: `แมกไม้ - แจ้งจองสนาม` @194zuzqi)
 
 1. ไปที่ https://developers.line.biz/console (บัญชี LINE เดียวกับข้อ 3 ก็ได้ หรือ Provider เดียวกัน)
 2. ในหน้า Provider เดิม (จากข้อ 3.2) > Create a new channel > เลือก **"Messaging API"**
