@@ -2481,7 +2481,7 @@
                     tr.onclick = (e) => {
                         const cellIndex = e.target.closest('td') ? e.target.closest('td').cellIndex : -1;
                         if (cellIndex >= 0 && cellIndex <= 4) {
-                            window.openBookingDetail(b.id);
+                            window.jumpToScheduleForBooking(b.id);
                         }
                     };
                     
@@ -2523,9 +2523,8 @@
                     
                     let actH = `<td class="p-1 md:px-4 md:py-3 border-none ${!window.isLoggedIn?'hidden':''}"><div class="flex justify-center gap-1">` + 
                         (window.isLoggedIn ? 
-                        `<button type="button" onclick="event.stopPropagation(); window.printReceipt('${b.id}')" class="p-1 md:p-2 rounded-lg transition-colors ${paid ? 'text-blue-600 hover:bg-blue-50' : 'text-slate-300'}" ${!paid ? 'disabled' : ''} title="พิมพ์ใบเสร็จ"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg></button>` + 
                         (paid ? 
-                        `<button type="button" onclick="event.stopPropagation(); window.viewSlipFromId('${b.id}')" class="relative p-1 md:p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="ดูรูปสลิป"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>${slipCountTxt}${multiIndicator}</button>` :
+                        `<button type="button" onclick="event.stopPropagation(); window.viewSlipFromId('${b.id}')" class="relative p-1.5 md:p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="ดูรูปสลิป"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>${slipCountTxt}${multiIndicator}</button>` :
                         `<button type="button" onclick="event.stopPropagation(); window.triggerUploadSlip('${b.id}')" class="relative p-1 md:p-2 text-slate-400 hover:text-blue-600 rounded-lg" ${isP && !window.adminMode?'disabled':''} title="อัพโหลดสลิป"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>${multiIndicator}</button>`
                         ) + 
                         `<button type="button" onclick="event.stopPropagation(); window.deleteBooking('${b.id}')" class="p-1 md:p-2 rounded-lg transition-colors ${isP && !window.adminMode ? 'text-slate-300 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}" ${isP && !window.adminMode?'disabled':''} title="ลบรายการจอง"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>` 
@@ -2655,16 +2654,21 @@
         // slip, or jump straight to uploading one - avoids relying on tapping tiny icon buttons.
         window.openBookingDetail = function(id) {
             const b = window.allBookingsCache.find(x => String(x.id) === String(id)); if (!b) return;
-            // Clicking a booking record (from the history list, admin or resident) should also jump
-            // the schedule grid below to that booking's own date/court, not leave it wherever it was.
-            // On mobile the schedule/list panels are tabs (only one visible at a time), so also
-            // switch to the schedule tab or the date/court change would happen off-screen unseen.
+            if (window.hasSlip(b)) window.viewSlipFromId(id);
+            else window.triggerUploadSlip(id);
+        };
+
+        // Clicking a booking record from the history list (anywhere except its own action icons)
+        // just jumps the schedule grid below to that booking's date/court - it does NOT also pop
+        // open the slip modal, since checking a slip is a separate action (the photo icon).
+        // On mobile the schedule/list panels are tabs (only one visible at a time), so also switch
+        // to the schedule tab or the date/court change would happen off-screen unseen.
+        window.jumpToScheduleForBooking = function(id) {
+            const b = window.allBookingsCache.find(x => String(x.id) === String(id)); if (!b) return;
             const fp = document.getElementById('scheduleDateInput')?._flatpickr;
             if (fp) fp.setDate(b.date, true);
             window.setCourtFilter(b.court);
             window.setRightTab('schedule');
-            if (window.hasSlip(b)) window.viewSlipFromId(id);
-            else window.triggerUploadSlip(id);
         };
 
         window.deleteBookingFromModal = async function() {
@@ -3008,16 +3012,6 @@
             document.getElementById('receiptModal').classList.add('modal-active');
         };
 
-        window.printReceipt = async (id) => {
-            const b = window.allBookingsCache.find(x => String(x.id) === String(id)); if (!b) return window.showAlert("ไม่พบข้อมูล");
-            const hrs = Number(b.hours||0), startH = parseInt((b.time||"00").split(':')[0],10); let std = 0, pk = 0;
-            for(let i=0; i<hrs; i++) { if (startH+i >= 18) pk++; else std++; } const total = std*100 + pk*150;
-            const rHtml = (type) => `<div class="border border-slate-800 p-4 relative bg-white" style="page-break-inside: avoid;"><div class="flex justify-between items-start mb-2"><div class="flex items-start gap-2"><img src="แมกไม้พื้นหลังดำ.jpg" class="h-10 w-auto object-contain" onerror="this.style.display='none'"><div><h2 class="text-base font-black text-slate-800 leading-tight">MAKMAI TENNIS CLUB</h2><p class="text-[9px] font-bold text-slate-500">ใบเสร็จรับเงิน / Receipt</p></div></div><div class="text-right"><div class="text-[9px] font-bold text-slate-500 mb-0.5">${type==='copy'?'สำเนา':'ต้นฉบับ'}</div><div class="font-mono text-xs font-bold text-slate-700">#${window.generateRef(b)}</div><div class="text-[9px] font-medium">วันที่: ${window.formatThaiDate(window.getThailandDate())}</div></div></div><div class="border-t border-slate-800 py-1.5 my-1"><div class="mb-1.5"><h3 class="text-[9px] font-bold text-slate-800 border-b border-slate-300 pb-0.5 mb-1">ผู้มาใช้บริการ / Customer</h3><div class="grid grid-cols-2 gap-1 text-[11px]"><div><span class="text-slate-500">ผู้จอง:</span> <span class="font-bold">${window.escapeHtml(b.customerName)}</span></div><div><span class="text-slate-500">บ้านเลขที่:</span> <span class="font-bold">125/${window.escapeHtml(b.address)}</span></div><div><span class="text-slate-500">เจ้าของแปลง:</span> <span class="font-bold">${window.escapeHtml(b.ownerName||'-')}</span></div></div></div><div><h3 class="text-[9px] font-bold text-slate-800 border-b border-slate-300 pb-0.5 mb-1">รายละเอียด / Booking</h3><div class="grid grid-cols-3 gap-1 text-[11px]"><div><span class="text-slate-500">สนาม:</span> <span class="font-bold">${b.court}</span></div><div><span class="text-slate-500">เริ่ม:</span> <span class="font-bold">${b.time} น.</span></div><div><span class="text-slate-500">เวลา:</span> <span class="font-bold">${b.hours} ชม.</span></div></div></div></div><div class="space-y-0.5 border-t border-slate-800 pt-1.5">${std>0?`<div class="flex justify-between text-[10px]"><span class="text-slate-600">ค่าสนาม 06:00-18:00 (${std} ชม.)</span><span class="font-mono font-bold">฿${std*100}</span></div>`:''}${pk>0?`<div class="flex justify-between text-[10px]"><span class="text-slate-600">ค่าสนาม 18:00-21:00 (${pk} ชม.)</span><span class="font-mono font-bold">฿${pk*150}</span></div>`:''}<div class="flex justify-between mt-1 pt-1 border-t border-slate-300"><span class="text-xs font-black text-slate-800">ยอดรวม / Total</span><span class="text-lg font-black text-slate-900 font-mono">฿${total}</span></div></div><div class="flex justify-end pt-8 mt-2"><div class="text-center w-28"><div class="border-b border-slate-400 mb-1 h-6"></div><span class="text-[8px] font-bold text-slate-500">ผู้รับเงิน / Recipient</span></div></div></div>`;
-            document.getElementById('receiptContent').innerHTML = `<div class="flex flex-col gap-0">${rHtml('copy')}<div class="w-full py-4 relative flex items-center justify-center print:py-6"><div class="absolute w-full border-b-2 border-dashed border-slate-400 top-1/2"></div><span class="relative bg-white px-2 text-[8px] text-slate-500 font-mono z-10">✂ ตัดตามรอยประ</span></div>${rHtml('original')}</div>`;
-            document.title = `${b.ownerName?b.ownerName.split(' ')[0]:b.customerName}_${window.generateRef(b).replace(/\//g,'-')}`;
-            document.querySelector('#receiptModal > div').className = 'bg-white max-w-xl w-full relative flex flex-col items-center p-0 md:p-4 shadow-2xl';
-            document.getElementById('receiptModal').classList.add('modal-active');
-        };
 
         window.updateMaintenanceWarning = function() {
             const banner = document.getElementById('maintenanceWarningBanner');
