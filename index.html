@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>Makmai Tennis Club - Booking System (Online)</title>
     <meta name="description" content="ระบบจองคอร์ตเทนนิสหมู่บ้านแมกไม้ (Online Cloud Version)">
+    <!-- "Add to Home Screen" support only (no service worker/offline caching - this app is
+    entirely dependent on live Firestore data anyway, so offline caching of the shell alone
+    wouldn't be very useful, and would add another layer of stale-cache risk on top of the
+    ordinary browser-cache issues already seen on this site). -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4338ca">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="แมกไม้เทนนิส">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <!-- Everything lives in this one HTML file with no separate cache-busted JS filename, so
     mobile browsers can keep serving a stale cached copy for a long time after a deploy - force
     revalidation on every load instead of relying on users to manually hard-refresh. -->
