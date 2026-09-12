@@ -2135,7 +2135,11 @@
                 // status field is a reliable way to detect old imported data (its own timestamp gets
                 // rewritten to "today" at import time, so timestamp/createdAt can't be used for this).
                 const isOldRecord = !b.status;
-                const adminCheckMark = (window.adminMode && hasSlip) ? ((b.status === 'confirmed' || isOldRecord) ? ' ✔' : ' ⏳') : '';
+                const needsAdminCheck = window.adminMode && hasSlip && b.status !== 'confirmed' && !isOldRecord;
+                // The tile is tiny - a small appended checkmark/hourglass is too easy to miss, so for
+                // admin specifically replace the label outright with "รอตรวจสอบ" instead of "จ่ายแล้ว"
+                // when it still needs review, same wording as the history list's own badge.
+                const adminStatusText = needsAdminCheck ? 'รอตรวจสอบ' : statusText;
                 const houseNo = window.escapeHtml(b.address || '');
                 const nameHouseLine = `${window.escapeHtml(b.customerName)} ${houseNo}`;
                 // Admin can manage any booking by tapping it; a resident can tap only their OWN
@@ -2143,7 +2147,7 @@
                 const isOwnBooking = window.isEffectivelyResident() && window.normalizeAddress(b.address) === window.normalizeAddress(window.APP.house || '');
                 const canOpenDetail = window.adminMode || isOwnBooking;
                 const clickAttr = canOpenDetail ? `onclick="window.openBookingDetail('${b.id}')"` : '';
-                return `<div ${clickAttr} class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} ${exc} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all ${canOpenDetail ? 'cursor-pointer' : ''}">${timeLabel}<span class="truncate w-full text-center px-1">${nameHouseLine}</span><span class="text-[8px] md:text-[9px] font-medium opacity-80 mt-0.5">${statusText}${adminCheckMark}</span></div>`;
+                return `<div ${clickAttr} class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} ${exc} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all ${canOpenDetail ? 'cursor-pointer' : ''}">${timeLabel}<span class="truncate w-full text-center px-1">${nameHouseLine}</span><span class="text-[8px] md:text-[9px] font-medium opacity-80 mt-0.5">${adminStatusText}</span></div>`;
             } else if (isP) {
                 return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-sm slot-past flex flex-col items-center justify-center h-full gap-0.5">${timeLabel}<span>✕</span></div>`;
             }
@@ -3587,8 +3591,10 @@
             window.currentFilterWeek = window.getWeekString(today); window.updateHourOptions(); window.goToCurrentWeek();
         };
 
-        // Mobile swipe-left-to-close for the slip view/upload modal (works fine in a web app -
-        // just plain touch events, no native app APIs needed).
+        // Mobile swipe-to-close for the slip view/upload modal. Accepts swipe left/right/down (not
+        // just left) since it's hard to predict which direction feels natural, and a strict
+        // left-only gesture turned out unreliable in practice (possibly conflicting with iOS
+        // Safari's own edge-swipe-back gesture when starting a leftward swipe near the screen edge).
         (function() {
             const modal = document.getElementById('slipModal'); if (!modal) return;
             let touchStartX = 0, touchStartY = 0;
@@ -3597,9 +3603,11 @@
             }, { passive: true });
             modal.addEventListener('touchend', (e) => {
                 const dx = e.changedTouches[0].clientX - touchStartX, dy = e.changedTouches[0].clientY - touchStartY;
-                // Require a clearly-horizontal, leftward swipe of a meaningful distance so it
-                // doesn't accidentally trigger while scrolling the slip image vertically.
-                if (dx < -80 && Math.abs(dx) > Math.abs(dy) * 1.5) window.closeModal();
+                const absX = Math.abs(dx), absY = Math.abs(dy);
+                const THRESHOLD = 60;
+                const isHorizontalSwipe = absX > THRESHOLD && absX > absY * 1.2; // left or right
+                const isDownSwipe = dy > THRESHOLD && absY > absX * 1.2; // pull-down to dismiss
+                if (isHorizontalSwipe || isDownSwipe) window.closeModal();
             }, { passive: true });
         })();
 
