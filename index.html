@@ -2124,7 +2124,10 @@
                 const statusText = { 'slot-booked': 'ค้างชำระ', 'slot-played': 'เล่นแล้ว', 'slot-underpaid': 'ยอดไม่ครบ', 'slot-overpaid': 'ชำระเกิน', 'slot-paid': 'จ่ายแล้ว' }[cls] || '';
                 // Admin-only: distinguish "paid, already reviewed by admin" from "paid, still awaiting
                 // admin's manual check" - the honor-system payment status above doesn't capture this.
-                const adminCheckMark = (window.adminMode && hasSlip) ? (b.status === 'confirmed' ? ' ✔' : ' ⏳') : '';
+                // Only applies from today onward - old records predate this feature and are treated as
+                // already checked rather than retroactively flagging a huge backlog of "awaiting check".
+                const isOldRecord = b.date < window.getThailandDate();
+                const adminCheckMark = (window.adminMode && hasSlip) ? ((b.status === 'confirmed' || isOldRecord) ? ' ✔' : ' ⏳') : '';
                 const houseNo = window.escapeHtml(b.address || '');
                 const nameHouseLine = `${window.escapeHtml(b.customerName)} ${houseNo}`;
                 // Admin can manage any booking by tapping it; a resident can tap only their OWN
@@ -2497,8 +2500,11 @@
                     // (any uploaded slip = "จ่ายแล้ว"), completely separate from whether admin has
                     // actually reviewed the slip photo. Without this, admins have no way to tell
                     // which paid bookings still need a manual look versus ones already checked off.
+                    // Only applies from today onward - older records predate this feature and are
+                    // treated as already checked rather than retroactively flagging them all.
+                    const isOldRecord = b.date < window.getThailandDate();
                     const adminCheckBadge = (window.adminMode && paid)
-                        ? (b.status === 'confirmed'
+                        ? ((b.status === 'confirmed' || isOldRecord)
                             ? `<span class="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black bg-emerald-100 text-emerald-700 ml-1">✔ ตรวจสอบแล้ว</span>`
                             : `<span class="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black bg-amber-100 text-amber-700 ml-1">⏳ รอตรวจสอบ</span>`)
                         : '';
