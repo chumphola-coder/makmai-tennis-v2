@@ -47,12 +47,18 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.auth.uid == uid
         && request.resource.data.uid == uid
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && request.resource.data.houseNumber.size() <= 20
+        && request.resource.data.ownerName.size() <= 100
+        && request.resource.data.get('displayName', '').size() <= 100;
       // A pending user may fix their own house selection but cannot self-approve.
       allow update: if isAdmin()
         || (request.auth.uid == uid
             && resource.data.status == 'pending'
-            && request.resource.data.status == 'pending');
+            && request.resource.data.status == 'pending'
+            && request.resource.data.houseNumber.size() <= 20
+            && request.resource.data.ownerName.size() <= 100
+            && request.resource.data.get('displayName', '').size() <= 100);
       allow delete: if isAdmin()
         || (request.auth.uid == uid && resource.data.status == 'pending');
     }
@@ -104,7 +110,10 @@ service cloud.firestore {
             && request.resource.data.houseNumber == myResident().houseNumber
             && request.resource.data.status == 'pending'
             && request.resource.data.get('scannedAmount', 0) == 0
-            && !('confirmedBy' in request.resource.data));
+            && !('confirmedBy' in request.resource.data)
+            && request.resource.data.get('customerName', '').size() <= 100
+            && request.resource.data.get('phoneNumber', '').size() <= 15
+            && request.resource.data.get('address', '').size() <= 50);
 
       allow update: if isAdmin()
         || (isApprovedResident() && resource.data.get('isCustomerProfile', false) == true

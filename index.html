@@ -226,7 +226,7 @@
                             </div>
                             <div class="grid grid-cols-2 gap-2 md:gap-3">
                                 <input type="text" id="inputName" name="customerName" required placeholder="ชื่อผู้จอง" class="w-full border border-slate-200 rounded-lg px-2 md:px-3 py-2 text-xs md:text-sm">
-                                <input type="tel" id="inputPhone" name="phoneNumber" placeholder="เบอร์โทร (บังคับ)" required maxlength="10" class="w-full border border-slate-200 rounded-lg px-2 md:px-3 py-2 text-xs md:text-sm" oninput="window.autoFillFromPhone(this.value)">
+                                <input type="tel" id="inputPhone" name="phoneNumber" placeholder="เบอร์โทร (บังคับ)" required maxlength="10" pattern="[0-9]{10}" inputmode="numeric" title="กรอกตัวเลข 10 หลัก" class="w-full border border-slate-200 rounded-lg px-2 md:px-3 py-2 text-xs md:text-sm" oninput="this.value = this.value.replace(/[^0-9]/g, ''); window.autoFillFromPhone(this.value)">
                             </div>
                             
                             <div class="flex items-center gap-2 w-full">
@@ -2526,6 +2526,8 @@
                         ) + 
                         `<button type="button" onclick="event.stopPropagation(); window.deleteBooking('${b.id}')" class="p-1 md:p-2 rounded-lg transition-colors ${isP && !window.adminMode ? 'text-slate-300 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}" ${isP && !window.adminMode?'disabled':''} title="ลบรายการจอง"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>` 
                         : "") + `</div></td>`;
+                if (!/^[0-9]{10}$/.test(fd.get('phoneNumber'))) { btn.disabled = false; btn.innerHTML = '<span>ยืนยันการจอง</span>'; return window.showAlert("❌ เบอร์โทรต้องเป็นตัวเลข 10 หลักเท่านั้น", "danger"); }
+
                     
                     tr.innerHTML = `<td class="p-1 md:px-4 md:py-3 text-center font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} border-none">${seq++}</td>` +
                                    `<td class="p-1 md:px-4 md:py-3 border-none"><div class="font-bold text-[9px] sm:text-sm md:text-base font-mono mb-0.5 ${isP?'text-slate-500':'text-slate-900'}">${window.generateRef(b)}</div>${badge}</td>` +
