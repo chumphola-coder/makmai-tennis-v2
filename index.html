@@ -2726,7 +2726,17 @@
 
                 // Honor system: any remaining slip keeps the booking trusted as paid in full.
                 b.scannedAmount = b.slips.length === 0 ? 0 : Number(b.totalPrice);
-                
+
+                // Removing the last slip means the booking is no longer actually paid - if it was
+                // previously admin-confirmed, that confirmation is now stale and must be cleared too,
+                // otherwise Firestore rules would later reject the resident's own re-upload write
+                // (rules block residents from writing while status stays 'confirmed').
+                if (b.slips.length === 0 && b.status === 'confirmed') {
+                    b.status = 'pending';
+                    delete b.confirmedBy;
+                    delete b.confirmedAt;
+                }
+
                 await setDoc(doc(collectionRef, String(b.id)), b); 
                 
                 if (fromM) { 
