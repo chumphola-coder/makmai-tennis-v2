@@ -1686,10 +1686,10 @@
 
         window.submitRegister = async function() {
             let house = document.getElementById('regHouse').value.trim();
-            // The input only asks for the number after "125/" (shown as a fixed prefix) - strip
-            // any "125/" the user might still type out of habit, then always add it back once,
-            // so the lookup key always matches window.houseOwnerDB's "125/xxx" format.
-            house = `125/${house.replace(/^125\/?/, '')}`;
+            // window.houseOwnerDB is keyed by the bare number (e.g. "382"), not "125/382" - the
+            // input only asks for that bare number (shown with a fixed "125/" label), but still
+            // strip a leading "125/" here in case anyone types it out of habit anyway.
+            house = house.replace(/^125\/?/, '');
             const errEl = document.getElementById('regHouseError');
             if (!house || !window.houseOwnerDB[house]) {
                 if (errEl) errEl.classList.remove('hidden');
