@@ -251,12 +251,6 @@
                                 </label>
                             </div>
                             
-                            <div class="flex items-start gap-2 mt-2 px-1">
-                                <input type="checkbox" id="isMultipleSlipForm" name="isMultipleBooking" class="w-4 h-4 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
-                                <label for="isMultipleSlipForm" class="text-[10px] md:text-xs font-bold text-slate-500 cursor-pointer leading-tight">
-                                    ใบเสร็จหลายการจอง<br><span class="font-normal">(อนุญาตให้ยอดเงินสลิป มากกว่า ค่าจองรอบนี้ได้)</span>
-                                </label>
-                            </div>
                             <div class="text-[10px] md:text-[11px] text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1.5 mt-1">⚠️ การจองนี้ต้องชำระเงินและรอการยืนยันจากผู้ดูแลภายใน 4 ชั่วโมง มิฉะนั้นระบบจะลบการจองนี้โดยอัตโนมัติ</div>
                         </div>
 
@@ -408,14 +402,6 @@
                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
             </div>
             <h3 class="text-xl font-bold text-slate-800 mb-6">อัพโหลดสลิปชำระเงิน</h3>
-            <label class="flex items-center justify-center gap-3 mb-3 bg-slate-50 p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-blue-50 transition-colors">
-                <input type="checkbox" id="updateIsMultipleSlip" class="w-5 h-5 text-blue-600 rounded cursor-pointer focus:ring-blue-500">
-                <span class="text-sm font-bold text-slate-700 select-none text-left leading-tight">
-                    ใบเสร็จหลายการจอง<br>
-                    <span class="text-[10px] text-slate-500 font-normal">(สลิปใบนี้จ่ายรวมหลายการจองพร้อมกัน ติ๊กแล้วอัพโหลดสลิปเดิมซ้ำทุกการจอง)</span>
-                </span>
-            </label>
-            <p class="text-[10px] text-slate-400 text-left leading-tight mb-6 px-1">💡 ถ้าการจองนี้มีหลายสลิป (เช่น โอนเพิ่มภายหลังเพื่อขยายเวลา) ไม่ต้องติ๊กช่องด้านบน กด "เพิ่มสลิปใหม่" ซ้ำได้เรื่อยๆ ระบบจะรวมยอดจากทุกสลิปให้อัตโนมัติ</p>
             <div class="flex gap-3">
                 <button onclick="window.closeUploadPrompt()" class="flex-1 px-4 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">ยกเลิก</button>
                 <button onclick="document.getElementById('updateSlipInput').click();" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg">เลือกไฟล์รูป</button>
@@ -582,11 +568,6 @@
                 <div id="slipCounter" class="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-md hidden">1 / 1</div>
             </div>
             <div class="no-print flex flex-col items-center justify-center gap-2 sm:gap-3 w-full p-3 sm:p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl relative z-10" onclick="event.stopPropagation();">
-                <label class="flex items-center gap-2 bg-white px-4 py-2 rounded-xl cursor-pointer shadow-md w-full md:w-auto justify-center hover:bg-blue-50 transition-colors">
-                    <input type="checkbox" id="modalIsMultipleSlip" class="w-5 h-5 text-blue-600 rounded cursor-pointer focus:ring-blue-500" onchange="window.toggleMultipleBookingStatus(this.checked)">
-                    <span class="text-sm font-bold text-slate-700 select-none">ใบเสร็จหลายการจอง (สลิปใบนี้จ่ายรวมหลายการจองพร้อมกัน → เปลี่ยนสถานะเป็น ชำระแล้ว)</span>
-                </label>
-                <p class="text-[10px] text-white/70 text-center px-2 -mt-1">💡 มีหลายสลิปเพราะโอนเพิ่มภายหลัง (ขยายเวลา)? ไม่ต้องติ๊กช่องนี้ กด "+ เพิ่มสลิปใหม่" ด้านล่างแทน ระบบจะรวมยอดให้อัตโนมัติ</p>
                 <div class="flex flex-wrap justify-center gap-2 sm:gap-3 w-full">
                     <button onclick="window.closeModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">ปิดหน้าต่าง</button>
                     <button id="btnConfirmPaymentModal" onclick="window.confirmPaymentInModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base hidden">✅ ยืนยันการชำระ</button>
@@ -2128,7 +2109,6 @@
                 const hasSlip = window.hasSlip(b);
                 const expectedPrice = Number(b.totalPrice) || 0;
                 let scannedPrice = b.scannedAmount !== undefined ? Number(b.scannedAmount) : (hasSlip ? expectedPrice : 0);
-                if (b.isMultipleBooking) scannedPrice = expectedPrice;
                 let cls = 'slot-booked';
                 if (hasSlip) {
                     if (fin) cls = 'slot-played';
@@ -2419,7 +2399,7 @@
                     await setDoc(doc(collectionRef, newId), {
                         id: newId, date: g.date, court: g.court, time: `${String(startH).padStart(2,'0')}:00`, hours: hrs, lightHours,
                         customerName, phoneNumber, address: window.APP.house, ownerName: window.APP.ownerName || '',
-                        totalPrice, isMultipleBooking: false, timestamp: Date.now(), createdAt: Date.now(),
+                        totalPrice, timestamp: Date.now(), createdAt: Date.now(),
                         week: weekStr, slips: [], ownerUid, houseNumber: window.APP.house,
                         scannedAmount: 0, status: 'pending',
                     });
@@ -2471,11 +2451,7 @@
                     const paid = window.hasSlip(b);
                     const expectedPrice = Number(b.totalPrice) || 0;
                     let scannedPrice = b.scannedAmount !== undefined ? Number(b.scannedAmount) : (paid ? expectedPrice : 0);
-                    
-                    if (b.isMultipleBooking) {
-                        scannedPrice = expectedPrice; 
-                    }
-                    
+
                     tr.className = `transition-colors relative ${isP ? 'bg-slate-100/60 opacity-80 border-slate-200' : 'bg-white cursor-pointer hover:bg-slate-50 border-emerald-500'} border-l-4 border-r-4 ${idx===0?'border-t-4':''} ${idx===bks.length-1?'border-b-4':'border-b border-slate-100'}`;
                     
                     tr.onclick = (e) => {
@@ -2523,7 +2499,7 @@
                         `<td class="p-1 md:px-4 md:py-3 border-none group" title="${window.adminMode ? 'โหมดผู้ดูแลเปิดใช้งานอยู่' : 'คลิกเพื่อแก้ไขวันและเวลา'}"><div class="font-bold text-[10px] sm:text-sm md:text-base ${window.adminMode?'text-red-600':'text-blue-600'} edit-trigger inline-block cursor-pointer hover:underline" onclick="event.stopPropagation(); window.openEditBookingModal('${b.id}')">${dateDisplay} ✏️</div><div class="font-bold text-[10px] sm:text-sm md:text-base text-slate-900 cursor-pointer mt-0.5 edit-trigger" onclick="event.stopPropagation(); window.openEditBookingModal('${b.id}')">${b.time} (${b.hours} ชม.) - ${b.court}</div></td>`;
                     
                     const slipCountTxt = window.getSlips(b).length > 1 ? `<span class="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">${window.getSlips(b).length}</span>` : '';
-                    const multiIndicator = b.isMultipleBooking ? `<span class="absolute -top-1 -left-1 text-blue-600 text-lg font-black leading-none" title="ใบเสร็จหลายการจอง">*</span>` : '';
+                    const multiIndicator = '';
                     
                     let actH = `<td class="p-1 md:px-4 md:py-3 border-none ${!window.isLoggedIn?'hidden':''}"><div class="flex justify-center gap-1">` + 
                         (window.isLoggedIn ? 
@@ -2618,7 +2594,6 @@
             const b = window.allBookingsCache.find(x => String(x.id) === String(id)); 
             if (b && window.isBookingPast(b) && !window.adminMode) return window.showAlert("❌ อัปโหลดสลิปไม่ได้ (เลยเวลาแล้ว)", "danger"); 
             window.currentUploadId = id; 
-            document.getElementById('updateIsMultipleSlip').checked = !!b?.isMultipleBooking;
             document.getElementById('uploadSlipPromptModal').classList.add('modal-active'); 
         };
 
@@ -2634,13 +2609,7 @@
                 const btnC = document.getElementById('btnChangeSlipModal');
                 const btnR = document.getElementById('btnRemoveSlipModal'); 
                 const btnConfirm = document.getElementById('btnConfirmPaymentModal');
-                const chkM = document.getElementById('modalIsMultipleSlip');
-                
-                if (chkM) {
-                    chkM.checked = !!b.isMultipleBooking;
-                    chkM.disabled = isP && !window.adminMode;
-                }
-                
+
                 if (isP && !window.adminMode) { 
                     btnC.style.display = 'none'; 
                     btnR.style.display = 'none'; 
@@ -2725,32 +2694,10 @@
             }
         };
 
-        window.toggleMultipleBookingStatus = async (isChecked) => {
-            if (!window.currentViewingSlipId) return;
-            const b = window.allBookingsCache.find(x => String(x.id) === String(window.currentViewingSlipId));
-            if (!b) return;
-
-            const isP = window.isBookingPast(b);
-            if (isP && !window.adminMode) {
-                document.getElementById('modalIsMultipleSlip').checked = !isChecked; 
-                return window.showAlert("❌ ไม่สามารถแก้ไขสถานะรายการในอดีตได้", "danger");
-            }
-
-            try {
-                b.isMultipleBooking = isChecked;
-                await setDoc(doc(collectionRef, String(b.id)), b);
-                window.showAlert("อัปเดตสถานะใบเสร็จเรียบร้อย", "success");
-            } catch(e) {
-                document.getElementById('modalIsMultipleSlip').checked = !isChecked; 
-                window.showAlert("อัปเดตสถานะไม่สำเร็จ: " + e.message, "danger");
-            }
-        };
-
         window.addMoreSlipInModal = async () => { 
             const b = window.allBookingsCache.find(x => String(x.id) === String(window.currentViewingSlipId)); 
             if (b && window.isBookingPast(b) && !window.adminMode) return window.showAlert("❌ เพิ่มสลิปไม่ได้ (เลยเวลาแล้ว)", "danger"); 
             window.currentUploadId = window.currentViewingSlipId; 
-            document.getElementById('updateIsMultipleSlip').checked = !!b?.isMultipleBooking;
             document.getElementById('uploadSlipPromptModal').classList.add('modal-active'); 
         };
 
@@ -2826,8 +2773,7 @@
                 if(!window.hasSlip(b)) return 'ค้างชำระ';
                 const exp = Number(b.totalPrice)||0;
                 let scn = b.scannedAmount !== undefined ? Number(b.scannedAmount) : exp;
-                if (b.isMultipleBooking) scn = exp;
-                
+
                 if(scn < exp) return 'ยอดไม่ครบ';
                 if(scn > exp) return 'ชำระเกิน';
                 return 'ชำระแล้ว';
@@ -3095,7 +3041,7 @@
                 const excelData = records.sort((a,b) => { if (a.date !== b.date) return a.date.localeCompare(b.date); return (a.time||"").localeCompare(b.time||""); }).map((b, i) => {
                     const hasSlip = window.hasSlip(b); const exp = Number(b.totalPrice)||0; const scn = b.scannedAmount !== undefined ? Number(b.scannedAmount) : exp;
                     let status = 'ชำระแล้ว';
-                    if (!hasSlip) status = 'ค้างชำระ'; else if (scn < exp) status = 'ยอดไม่ครบ'; else if (scn > exp && !b.isMultipleBooking) status = 'ชำระเกิน';
+                    if (!hasSlip) status = 'ค้างชำระ'; else if (scn < exp) status = 'ยอดไม่ครบ'; else if (scn > exp) status = 'ชำระเกิน';
                     return { 'ลำดับ': i+1, 'วันที่จอง': b.date, 'เวลาเริ่ม': b.time, 'จำนวน ชม.': b.hours, 'สนาม': b.court, 'ชื่อผู้จอง': b.customerName, 'บ้านเลขที่': `125/${b.address}`, 'ยอดรวม (บาท)': exp, 'ยอดโอนจริง (บาท)': hasSlip ? scn : 0, 'สถานะ': status };
                 });
                 const ws = XLSX.utils.json_to_sheet(excelData); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Archive");
@@ -3173,8 +3119,6 @@
                 btn.disabled = true; btn.innerHTML = '<span class="flex items-center gap-2"><svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>กำลังตรวจสอบ...</span>';
                 const date = fd.get('date'), time = fd.get('time'), startH = parseInt(time.split(':')[0], 10), hours = parseInt(fd.get('hours'), 10), cleanAddress = window.normalizeAddress(fd.get('address')), weekStr = window.getWeekString(date), finalOwnerName = (fd.get('ownerName1') + ' ' + fd.get('ownerName2')).trim(), todayThaiStr = window.getThailandDate(), nowH = window.getThailandHour(), files = document.getElementById('slipInput').files, isCurrentHour = (date === todayThaiStr && startH === nowH);
 
-                const isMultiple = document.getElementById('isMultipleSlipForm').checked;
-
                 if (!/^[0-9]{10}$/.test(fd.get('phoneNumber'))) { btn.disabled = false; btn.innerHTML = '<span>ยืนยันการจอง</span>'; return window.showAlert("❌ เบอร์โทรต้องเป็นตัวเลข 10 หลักเท่านั้น", "danger"); }
 
                 if (window.isPastBookingMode) {
@@ -3243,7 +3187,7 @@
                     id: newId, date, court: fd.get('court'), time: time, hours: hours, lightHours: implicitLightHours,
                     customerName: fd.get('customerName'), phoneNumber: fd.get('phoneNumber'),
                     address: cleanAddress, ownerName: finalOwnerName, totalPrice: totalPrice,
-                    isMultipleBooking: isMultiple, timestamp: Date.now(), createdAt: Date.now(),
+                    timestamp: Date.now(), createdAt: Date.now(),
                     week: weekStr, slips: slipsArray, ownerUid: ownerUid, houseNumber: bookingHouse
                 };
                 if (isAdminUser) {
@@ -3351,8 +3295,7 @@
         document.getElementById('updateSlipInput').onchange = async (e) => {
             const files = e.target.files; if (files.length === 0 || !window.currentUploadId) return;
             window.closeUploadPrompt(); 
-            const isMultiple = document.getElementById('updateIsMultipleSlip').checked;
-            
+
             try {
                 const b = window.allBookingsCache.find(x => String(x.id) === String(window.currentUploadId));
                 if (b) { 
@@ -3369,7 +3312,6 @@
                     const expectedPrice = Number(b.totalPrice);
                     const totalScannedAmount = expectedPrice;
 
-                    b.isMultipleBooking = isMultiple;
                     b.slips = existingSlips;
                     b.scannedAmount = totalScannedAmount;
                     if(b.slip) b.slip = ""; 
