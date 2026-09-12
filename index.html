@@ -309,7 +309,7 @@
                                 <thead class="bg-slate-200 sticky top-0 text-[10px] md:text-sm uppercase font-black text-slate-900 z-20 shadow-sm border-b border-slate-300">
                                     <tr>
                                         <th class="p-1 md:px-4 md:py-3 text-center w-8 md:w-16">ลำดับ</th>
-                                        <th class="p-1 md:px-4 md:py-3">เลขที่ / สถานะ</th>
+                                        <th class="p-1 md:px-4 md:py-3">สถานะ</th>
                                         <th class="p-1 md:px-4 md:py-3">ผู้จอง / บ้าน</th>
                                         <th class="p-1 md:px-4 md:py-3">วัน-เวลา / สนาม</th>
                                         <th class="p-1 md:px-4 md:py-3 text-right">ยอดรวม</th>
@@ -2531,7 +2531,7 @@
                         : "") + `</div></td>`;
 
                     tr.innerHTML = `<td class="p-1 md:px-4 md:py-3 text-center font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} border-none">${seq++}</td>` +
-                                   `<td class="p-1 md:px-4 md:py-3 border-none"><div class="font-bold text-[9px] sm:text-sm md:text-base font-mono mb-0.5 ${isP?'text-slate-500':'text-slate-900'}">${window.generateRef(b)}</div>${badge}</td>` +
+                                   `<td class="p-1 md:px-4 md:py-3 border-none">${badge}</td>` +
                                    `<td class="p-1 md:px-4 md:py-3 border-none"><div class="font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'}">${window.escapeHtml(b.customerName)}</div><div class="font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} mt-0.5">125/${window.escapeHtml(b.address)}</div></td>` +
                                    `${edH}` +
                                    `<td class="p-1 md:px-4 md:py-3 text-right font-black text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} border-none">฿${(Number(b.totalPrice)||0).toLocaleString()}</td>` +
