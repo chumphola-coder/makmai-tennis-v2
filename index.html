@@ -328,7 +328,6 @@
                                 <input type="text" id="scheduleDateInput" class="bg-slate-50 border border-slate-200 rounded-lg px-2 md:px-4 py-1.5 md:py-2 text-sm md:text-lg font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 w-36 md:w-48 text-center shadow-sm cursor-pointer" placeholder="เลือกวันที่">
                             </div>
                             <div id="scheduleLegend" class="flex gap-1.5 md:gap-2 text-[9px] md:text-[10px] font-bold flex-wrap">
-                                <span id="scheduleSlipNote" class="hidden items-center gap-1 bg-white text-indigo-700 px-2 py-1 rounded-full border border-indigo-100"><span class="font-black text-[11px] leading-none">*</span> สลิปสำหรับหลายการจอง</span>
                             </div>
                         </div>
                         <div id="scheduleWeekNav" class="hidden items-center justify-between gap-1 mb-2 bg-slate-50 rounded-lg p-1">
@@ -1838,7 +1837,6 @@
             const b = document.getElementById('loginBtn'), lc = document.getElementById('leftColumn'), rc = document.getElementById('rightColumn'), ab = document.getElementById('mainActionButtons'), ta = document.getElementById('thActions'), fp = document.getElementById('scheduleDateInput')?._flatpickr;
             const logo = document.getElementById('logoContainer');
             const btnCurrentWeek = document.getElementById('btnCurrentWeek');
-            const slipNote = document.getElementById('scheduleSlipNote');
             const adminOnlyBtns = document.getElementById('adminOnlyButtons');
             
             const today = window.getThailandDate(), curWS = window.getStartOfWeek(window.getWeekString(today)), nextWE = new Date(curWS); nextWE.setDate(nextWE.getDate() + 13);
@@ -1851,8 +1849,7 @@
                 
                 if (logo) logo.classList.remove('hidden');
                 if (btnCurrentWeek) btnCurrentWeek.classList.remove('hidden');
-                const showSlipNote = window.adminMode && !window.previewAsResident;
-                if (slipNote) { slipNote.classList.toggle('hidden', !showSlipNote); slipNote.classList.toggle('flex', showSlipNote); }
+
                 if (adminOnlyBtns) adminOnlyBtns.classList.toggle('hidden', !window.adminMode || window.previewAsResident);
 
                 const previewBtn = document.getElementById('previewResidentBtn');
@@ -1901,7 +1898,6 @@
                 
                 if (logo) logo.classList.add('hidden');
                 if (btnCurrentWeek) btnCurrentWeek.classList.add('hidden');
-                if (slipNote) { slipNote.classList.add('hidden'); slipNote.classList.remove('flex'); }
                 if (fp) { fp.set('minDate', minS); fp.set('maxDate', maxS); }
                 const curW = window.getWeekString(today), nextW = window.getWeekString(maxS);
                 if (window.currentFilterWeek < curW || window.currentFilterWeek > nextW) window.goToCurrentWeek();
