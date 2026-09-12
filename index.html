@@ -2301,6 +2301,7 @@
             const bar = document.getElementById('residentSelectionBar'); if (!bar) return;
             const slots = window.residentSelection.slots;
             if (!slots.length) { bar.classList.add('hidden'); bar.classList.remove('flex'); return; }
+            const wasHidden = bar.classList.contains('hidden');
             bar.classList.remove('hidden'); bar.classList.add('flex');
             const groupList = window.groupResidentSlotsByDateCourt(slots);
             const lines = groupList.map(g => {
@@ -2310,6 +2311,12 @@
             let total = 0; slots.forEach(s => { total += s.hour >= 18 ? 150 : 100; });
             document.getElementById('residentSelectionSummary').innerHTML = lines.join('<br>');
             document.getElementById('residentSelectionTotal').innerText = `฿${total.toLocaleString()}`;
+            // First slot tap of a new selection: the summary bar appears below the schedule grid,
+            // which is often off-screen (below the fold) on mobile - scroll it into view automatically
+            // instead of leaving the user to discover it needs a manual scroll down.
+            if (wasHidden) {
+                requestAnimationFrame(() => bar.scrollIntoView({ behavior: 'smooth', block: 'end' }));
+            }
         };
 
         window.clearResidentSelection = function() {
