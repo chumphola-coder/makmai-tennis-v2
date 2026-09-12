@@ -60,11 +60,9 @@
         .slot-free { background-color: #ecfdf5; color: #047857; cursor: pointer; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(16,185,129,0.08); }
         .slot-free:hover { background-color: #10b981; color: #ffffff; border-color: #10b981; transform: translateY(-1px); box-shadow: 0 6px 14px -4px rgba(16,185,129,0.5); }
         .slot-booked { background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
-        .slot-paid { background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+        .slot-pending-review { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .slot-confirmed { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
         .slot-past { background-color: #f1f5f9; color: #94a3b8; cursor: not-allowed; border: 1px solid #e2e8f0; }
-        .slot-played { background-color: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; }
-        .slot-overpaid { background-color: #fae8ff; color: #7e22ce; border: 1px solid #d8b4fe; }
-        .slot-underpaid { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
         
         /* Highlight Animation */
         .slot-highlight { animation: pulse-ring 2s infinite; }
@@ -2117,35 +2115,23 @@
             const b = filtered.find(x => h >= parseInt((x.time||"0").split(':')[0],10) && h < parseInt((x.time||"0").split(':')[0],10) + Number(x.hours||1) && x.court === court);
             let exc = (b && String(b.id) === String(window.highlightedBookingId)) ? 'ring-2 ring-offset-1 ring-amber-400 shadow-md scale-105 z-10 relative' : '';
             if (b) {
-                const fin = (date < today) || (date === today && nowH >= (parseInt(b.time.split(':')[0],10) + Number(b.hours)));
                 const hasSlip = window.hasSlip(b);
-                const expectedPrice = Number(b.totalPrice) || 0;
-                let scannedPrice = b.scannedAmount !== undefined ? Number(b.scannedAmount) : (hasSlip ? expectedPrice : 0);
-                let cls = 'slot-booked';
+                // One status, same for every role (resident/admin/pending) - no more separate honor-system
+                // amount-comparison color plus an admin-only review badge on top of it. Imported historical
+                // records never have a `status` field at all (unlike every booking made through the app,
+                // which always sets 'pending'/'confirmed') - a missing status field reliably marks old
+                // imported data as already reviewed.
+                const isOldRecord = !b.status;
+                let cls = 'slot-booked', statusText = 'ค้างชำระ';
                 if (hasSlip) {
-                    if (fin) cls = 'slot-played';
-                    else if (scannedPrice < expectedPrice) cls = 'slot-underpaid';
-                    else if (scannedPrice > expectedPrice) cls = 'slot-overpaid';
-                    else cls = 'slot-paid';
+                    if (b.status === 'confirmed' || isOldRecord) { cls = 'slot-confirmed'; statusText = 'ตรวจสอบแล้ว'; }
+                    else { cls = 'slot-pending-review'; statusText = 'รอตรวจสอบ'; }
                 }
                 // Signed-in but not-yet-approved residents can see real free/busy status (no legend needed to
                 // interpret it) but never other residents' name/plot number until their own account is approved.
                 if (window.APP.role === 'pending') {
                     return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all">${timeLabel}<span class="line-through opacity-80">ไม่ว่าง</span></div>`;
                 }
-                const statusText = { 'slot-booked': 'ค้างชำระ', 'slot-played': 'เล่นแล้ว', 'slot-underpaid': 'ยอดไม่ครบ', 'slot-overpaid': 'ชำระเกิน', 'slot-paid': 'จ่ายแล้ว' }[cls] || '';
-                // Admin-only: distinguish "paid, already reviewed by admin" from "paid, still awaiting
-                // admin's manual check" - the honor-system payment status above doesn't capture this.
-                // Imported historical records never have a `status` field at all (unlike every
-                // booking made through the app, which always sets 'pending'/'confirmed') - a missing
-                // status field is a reliable way to detect old imported data (its own timestamp gets
-                // rewritten to "today" at import time, so timestamp/createdAt can't be used for this).
-                const isOldRecord = !b.status;
-                const needsAdminCheck = window.adminMode && hasSlip && b.status !== 'confirmed' && !isOldRecord;
-                // The tile is tiny - a small appended checkmark/hourglass is too easy to miss, so for
-                // admin specifically replace the label outright with "รอตรวจสอบ" instead of "จ่ายแล้ว"
-                // when it still needs review, same wording as the history list's own badge.
-                const adminStatusText = needsAdminCheck ? 'รอตรวจสอบ' : statusText;
                 const houseNo = window.escapeHtml(b.address || '');
                 const nameHouseLine = `${window.escapeHtml(b.customerName)} ${houseNo}`;
                 // Admin can manage any booking by tapping it; a resident can tap only their OWN
@@ -2153,7 +2139,7 @@
                 const isOwnBooking = window.isEffectivelyResident() && window.normalizeAddress(b.address) === window.normalizeAddress(window.APP.house || '');
                 const canOpenDetail = window.adminMode || isOwnBooking;
                 const clickAttr = canOpenDetail ? `onclick="window.openBookingDetail('${b.id}')"` : '';
-                return `<div ${clickAttr} class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} ${exc} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all ${canOpenDetail ? 'cursor-pointer' : ''}">${timeLabel}<span class="truncate w-full text-center px-1">${nameHouseLine}</span><span class="text-[8px] md:text-[9px] font-medium opacity-80 mt-0.5">${adminStatusText}</span></div>`;
+                return `<div ${clickAttr} class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-xs font-bold ${cls} ${exc} flex flex-col justify-center items-center leading-tight min-w-0 w-full h-full overflow-hidden transition-all ${canOpenDetail ? 'cursor-pointer' : ''}">${timeLabel}<span class="truncate w-full text-center px-1">${nameHouseLine}</span><span class="text-[8px] md:text-[9px] font-medium opacity-80 mt-0.5">${statusText}</span></div>`;
             } else if (isP) {
                 return `<div class="rounded-lg py-1.5 md:py-2 text-[10px] md:text-sm slot-past flex flex-col items-center justify-center h-full gap-0.5">${timeLabel}<span>✕</span></div>`;
             }
@@ -2489,8 +2475,6 @@
                     const tr = document.createElement('tr');
                     const isP = window.isBookingPast(b);
                     const paid = window.hasSlip(b);
-                    const expectedPrice = Number(b.totalPrice) || 0;
-                    let scannedPrice = b.scannedAmount !== undefined ? Number(b.scannedAmount) : (paid ? expectedPrice : 0);
 
                     tr.className = `transition-colors relative ${isP ? 'bg-slate-100/60 opacity-80 border-slate-200' : 'bg-white cursor-pointer hover:bg-slate-50 border-emerald-500'} border-l-4 border-r-4 ${idx===0?'border-t-4':''} ${idx===bks.length-1?'border-b-4':'border-b border-slate-100'}`;
                     
@@ -2501,42 +2485,23 @@
                         }
                     };
                     
-                    let statusText = '', badgeBg = '', badgeText = '';
-                    if (!paid) {
-                        statusText = 'ค้างชำระ'; badgeBg = 'bg-orange-100'; badgeText = 'text-orange-700';
-                    } else if (scannedPrice < expectedPrice) {
-                        statusText = 'ยอดไม่ครบ'; badgeBg = 'bg-red-100'; badgeText = 'text-red-700';
-                    } else if (scannedPrice > expectedPrice) {
-                        statusText = 'ชำระเกิน'; badgeBg = 'bg-purple-100'; badgeText = 'text-purple-700';
-                    } else {
-                        statusText = 'ชำระแล้ว'; badgeBg = 'bg-blue-100'; badgeText = 'text-blue-700';
-                    }
-
-                    if (isP) {
-                        badgeBg = 'bg-slate-200'; badgeText = 'text-slate-600';
-                        if (!paid) {
-                            statusText = 'หมดเวลา';
-                        } else if (scannedPrice === expectedPrice) {
-                            statusText = 'สำเร็จ';
+                    // One status, same for every role - no more separate honor-system amount-comparison
+                    // badge plus an admin-only review badge on top of it. Imported historical records never
+                    // have a `status` field at all (unlike every booking made through the app, which always
+                    // sets 'pending'/'confirmed') - a missing status field reliably marks old imported data
+                    // as already reviewed.
+                    const isOldRecord = !b.status;
+                    let statusText = 'ค้างชำระ', badgeBg = 'bg-orange-100', badgeText = 'text-orange-700';
+                    if (paid) {
+                        if (b.status === 'confirmed' || isOldRecord) {
+                            statusText = 'ตรวจสอบแล้ว'; badgeBg = 'bg-emerald-100'; badgeText = 'text-emerald-700';
+                        } else {
+                            statusText = 'รอตรวจสอบ'; badgeBg = 'bg-amber-100'; badgeText = 'text-amber-700';
                         }
                     }
+                    if (isP && !paid) { statusText = 'หมดเวลา'; badgeBg = 'bg-slate-200'; badgeText = 'text-slate-600'; }
                     
                     const badge = `<span class="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black ${badgeBg} ${badgeText}">${statusText}</span>`;
-
-                    // Admin-only: the payment badge above is purely the honor-system amount check
-                    // (any uploaded slip = "จ่ายแล้ว"), completely separate from whether admin has
-                    // actually reviewed the slip photo. Without this, admins have no way to tell
-                    // which paid bookings still need a manual look versus ones already checked off.
-                    // Imported historical records never have a `status` field at all (unlike every
-                    // booking made through the app) - a missing status field reliably marks old
-                    // imported data as already checked (its timestamp gets rewritten to "today" at
-                    // import time, so timestamp/createdAt alone can't distinguish old vs new).
-                    const isOldRecord = !b.status;
-                    const adminCheckBadge = (window.adminMode && paid)
-                        ? ((b.status === 'confirmed' || isOldRecord)
-                            ? `<span class="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black bg-emerald-100 text-emerald-700 ml-1">✔ ตรวจสอบแล้ว</span>`
-                            : `<span class="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black bg-amber-100 text-amber-700 ml-1">⏳ รอตรวจสอบ</span>`)
-                        : '';
                     
                     const dObj = window.parseLocalDate(b.date);
                     const thaiDayNames = ["วันอาทิตย์", "วันจันทร์", "วันอังคาร", "วันพุธ", "วันพฤหัสฯ", "วันศุกร์", "วันเสาร์"];
@@ -2567,7 +2532,7 @@
                         : "") + `</div></td>`;
 
                     tr.innerHTML = `<td class="p-1 md:px-4 md:py-3 text-center font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} border-none">${seq++}</td>` +
-                                   `<td class="p-1 md:px-4 md:py-3 border-none"><div class="font-bold text-[9px] sm:text-sm md:text-base font-mono mb-0.5 ${isP?'text-slate-500':'text-slate-900'}">${window.generateRef(b)}</div>${badge}${adminCheckBadge}</td>` +
+                                   `<td class="p-1 md:px-4 md:py-3 border-none"><div class="font-bold text-[9px] sm:text-sm md:text-base font-mono mb-0.5 ${isP?'text-slate-500':'text-slate-900'}">${window.generateRef(b)}</div>${badge}</td>` +
                                    `<td class="p-1 md:px-4 md:py-3 border-none"><div class="font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'}">${window.escapeHtml(b.customerName)}</div><div class="font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} mt-0.5">125/${window.escapeHtml(b.address)}</div></td>` +
                                    `${edH}` +
                                    `<td class="p-1 md:px-4 md:py-3 text-right font-black text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} border-none">฿${(Number(b.totalPrice)||0).toLocaleString()}</td>` +
@@ -2690,6 +2655,13 @@
         // slip, or jump straight to uploading one - avoids relying on tapping tiny icon buttons.
         window.openBookingDetail = function(id) {
             const b = window.allBookingsCache.find(x => String(x.id) === String(id)); if (!b) return;
+            // Admin clicking a booking record (e.g. from the history list) should also jump the
+            // schedule grid below to that booking's own date/court, not leave it wherever it was.
+            if (window.adminMode) {
+                const fp = document.getElementById('scheduleDateInput')?._flatpickr;
+                if (fp) fp.setDate(b.date, true);
+                window.setCourtFilter(b.court);
+            }
             if (window.hasSlip(b)) window.viewSlipFromId(id);
             else window.triggerUploadSlip(id);
         };
