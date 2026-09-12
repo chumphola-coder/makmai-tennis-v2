@@ -69,9 +69,9 @@
         
         .slot-free { background-color: #ecfdf5; color: #047857; cursor: pointer; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(16,185,129,0.08); }
         .slot-free:hover { background-color: #10b981; color: #ffffff; border-color: #10b981; transform: translateY(-1px); box-shadow: 0 6px 14px -4px rgba(16,185,129,0.5); }
-        .slot-booked { background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+        .slot-booked { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
         .slot-pending-review { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-        .slot-confirmed { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .slot-confirmed { background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
         .slot-past { background-color: #f1f5f9; color: #94a3b8; cursor: not-allowed; border: 1px solid #e2e8f0; }
         
         /* Highlight Animation */
@@ -2501,10 +2501,10 @@
                     // sets 'pending'/'confirmed') - a missing status field reliably marks old imported data
                     // as already reviewed.
                     const isOldRecord = !b.status;
-                    let statusText = 'ค้างชำระ', badgeBg = 'bg-orange-100', badgeText = 'text-orange-700';
+                    let statusText = 'ค้างชำระ', badgeBg = 'bg-red-100', badgeText = 'text-red-700';
                     if (paid) {
                         if (b.status === 'confirmed' || isOldRecord) {
-                            statusText = 'ตรวจสอบแล้ว'; badgeBg = 'bg-emerald-100'; badgeText = 'text-emerald-700';
+                            statusText = 'ตรวจสอบแล้ว'; badgeBg = 'bg-blue-100'; badgeText = 'text-blue-700';
                         } else {
                             statusText = 'รอตรวจสอบ'; badgeBg = 'bg-amber-100'; badgeText = 'text-amber-700';
                         }
