@@ -2636,8 +2636,6 @@
         };
 
         window.triggerUploadSlip = (id) => { 
-            const b = window.allBookingsCache.find(x => String(x.id) === String(id)); 
-            if (b && window.isBookingPast(b) && !window.adminMode) return window.showAlert("❌ อัปโหลดสลิปไม่ได้ (เลยเวลาแล้ว)", "danger"); 
             window.currentUploadId = id; 
             document.getElementById('uploadSlipPromptModal').classList.add('modal-active'); 
         };
@@ -2742,8 +2740,6 @@
         };
 
         window.addMoreSlipInModal = async () => { 
-            const b = window.allBookingsCache.find(x => String(x.id) === String(window.currentViewingSlipId)); 
-            if (b && window.isBookingPast(b) && !window.adminMode) return window.showAlert("❌ เพิ่มสลิปไม่ได้ (เลยเวลาแล้ว)", "danger"); 
             window.currentUploadId = window.currentViewingSlipId; 
             document.getElementById('uploadSlipPromptModal').classList.add('modal-active'); 
         };
