@@ -573,7 +573,7 @@
                     <button id="btnChangeSlipModal" onclick="window.addMoreSlipInModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-50 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">+ เพิ่มสลิปใหม่</button>
                     <button id="btnRemoveSlipModal" onclick="window.removeCurrentSlipInModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-red-500 hover:bg-red-400 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">ลบรูปนี้</button>
                     <button id="btnDeleteBookingModal" onclick="window.deleteBookingFromModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-red-800 hover:bg-red-700 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">🗑️ ลบการจองนี้</button>
-                    <button type="button" onclick="window.print()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">พิมพ์ภาพ / PDF</button>
+                    <button type="button" id="btnPrintSlipModal" onclick="window.print()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">พิมพ์ภาพ / PDF</button>
                 </div>
             </div>
         </div>
@@ -2627,6 +2627,8 @@
                 }
                 const btnDeleteModal = document.getElementById('btnDeleteBookingModal');
                 if (btnDeleteModal) btnDeleteModal.classList.toggle('hidden', isP && !window.adminMode);
+                const btnPrintModal = document.getElementById('btnPrintSlipModal');
+                if (btnPrintModal) btnPrintModal.classList.toggle('hidden', !window.adminMode);
 
                 document.getElementById('slipModal').classList.add('modal-active'); 
             } else {
