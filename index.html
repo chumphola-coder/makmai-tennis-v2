@@ -2534,9 +2534,7 @@
                         ) + 
                         `<button type="button" onclick="event.stopPropagation(); window.deleteBooking('${b.id}')" class="p-1 md:p-2 rounded-lg transition-colors ${isP && !window.adminMode ? 'text-slate-300 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}" ${isP && !window.adminMode?'disabled':''} title="ลบรายการจอง"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>` 
                         : "") + `</div></td>`;
-                if (!/^[0-9]{10}$/.test(fd.get('phoneNumber'))) { btn.disabled = false; btn.innerHTML = '<span>ยืนยันการจอง</span>'; return window.showAlert("❌ เบอร์โทรต้องเป็นตัวเลข 10 หลักเท่านั้น", "danger"); }
 
-                    
                     tr.innerHTML = `<td class="p-1 md:px-4 md:py-3 text-center font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} border-none">${seq++}</td>` +
                                    `<td class="p-1 md:px-4 md:py-3 border-none"><div class="font-bold text-[9px] sm:text-sm md:text-base font-mono mb-0.5 ${isP?'text-slate-500':'text-slate-900'}">${window.generateRef(b)}</div>${badge}</td>` +
                                    `<td class="p-1 md:px-4 md:py-3 border-none"><div class="font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'}">${window.escapeHtml(b.customerName)}</div><div class="font-bold text-[10px] sm:text-sm md:text-base ${isP?'text-slate-500':'text-slate-900'} mt-0.5">125/${window.escapeHtml(b.address)}</div></td>` +
@@ -3176,6 +3174,8 @@
                 const date = fd.get('date'), time = fd.get('time'), startH = parseInt(time.split(':')[0], 10), hours = parseInt(fd.get('hours'), 10), cleanAddress = window.normalizeAddress(fd.get('address')), weekStr = window.getWeekString(date), finalOwnerName = (fd.get('ownerName1') + ' ' + fd.get('ownerName2')).trim(), todayThaiStr = window.getThailandDate(), nowH = window.getThailandHour(), files = document.getElementById('slipInput').files, isCurrentHour = (date === todayThaiStr && startH === nowH);
 
                 const isMultiple = document.getElementById('isMultipleSlipForm').checked;
+
+                if (!/^[0-9]{10}$/.test(fd.get('phoneNumber'))) { btn.disabled = false; btn.innerHTML = '<span>ยืนยันการจอง</span>'; return window.showAlert("❌ เบอร์โทรต้องเป็นตัวเลข 10 หลักเท่านั้น", "danger"); }
 
                 if (window.isPastBookingMode) {
                     if (date > todayThaiStr || (date === todayThaiStr && startH > nowH)) return window.showAlert("❌ โหมดบันทึกย้อนหลัง ใช้สำหรับเวลาที่ผ่านไปแล้วเท่านั้น", "danger");
