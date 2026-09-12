@@ -1189,6 +1189,12 @@
         };
         window.getThailandDate = function() { const p = window.getThailandTimeParts(); return `${p.year}-${p.month}-${p.day}`; };
         window.getThailandHour = function() { return parseInt(window.getThailandTimeParts().hour, 10); };
+        // Absolute UTC epoch ms for today's midnight in Thailand (fixed UTC+7, no DST) - safe to
+        // compare directly against any record's createdAt/timestamp regardless of the browser's own timezone.
+        window.getStartOfTodayMs = function() {
+            const p = window.getThailandTimeParts();
+            return Date.UTC(parseInt(p.year,10), parseInt(p.month,10)-1, parseInt(p.day,10), 0, 0, 0) - 7*3600000;
+        };
         window.parseLocalDate = function(s) { 
             if (!s) return new Date(); 
             if (s instanceof Date) return s; 
@@ -2124,9 +2130,10 @@
                 const statusText = { 'slot-booked': 'ค้างชำระ', 'slot-played': 'เล่นแล้ว', 'slot-underpaid': 'ยอดไม่ครบ', 'slot-overpaid': 'ชำระเกิน', 'slot-paid': 'จ่ายแล้ว' }[cls] || '';
                 // Admin-only: distinguish "paid, already reviewed by admin" from "paid, still awaiting
                 // admin's manual check" - the honor-system payment status above doesn't capture this.
-                // Only applies from today onward - old records predate this feature and are treated as
-                // already checked rather than retroactively flagging a huge backlog of "awaiting check".
-                const isOldRecord = b.date < window.getThailandDate();
+                // Only applies to records actually CREATED today or later - imported historical data
+                // (createdAt/timestamp predates today) is treated as already checked, regardless of
+                // what court-date it happens to be booked for.
+                const isOldRecord = (b.createdAt || b.timestamp || 0) < window.getStartOfTodayMs();
                 const adminCheckMark = (window.adminMode && hasSlip) ? ((b.status === 'confirmed' || isOldRecord) ? ' ✔' : ' ⏳') : '';
                 const houseNo = window.escapeHtml(b.address || '');
                 const nameHouseLine = `${window.escapeHtml(b.customerName)} ${houseNo}`;
@@ -2500,9 +2507,10 @@
                     // (any uploaded slip = "จ่ายแล้ว"), completely separate from whether admin has
                     // actually reviewed the slip photo. Without this, admins have no way to tell
                     // which paid bookings still need a manual look versus ones already checked off.
-                    // Only applies from today onward - older records predate this feature and are
-                    // treated as already checked rather than retroactively flagging them all.
-                    const isOldRecord = b.date < window.getThailandDate();
+                    // Only applies to records CREATED today or later - imported historical data
+                    // (createdAt/timestamp predates today) is treated as already checked, regardless
+                    // of what court-date it happens to be booked for.
+                    const isOldRecord = (b.createdAt || b.timestamp || 0) < window.getStartOfTodayMs();
                     const adminCheckBadge = (window.adminMode && paid)
                         ? ((b.status === 'confirmed' || isOldRecord)
                             ? `<span class="px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black bg-emerald-100 text-emerald-700 ml-1">✔ ตรวจสอบแล้ว</span>`
