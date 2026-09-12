@@ -1665,7 +1665,10 @@
                     <h2 class="text-xl font-bold text-slate-800 mb-1">ลงทะเบียนบ้านของคุณ</h2>
                     <p class="text-sm text-slate-500 mb-4">กรอกเลขที่บ้านของคุณ ระบบจะส่งให้ผู้ดูแลอนุมัติก่อนเริ่มจอง</p>
                     <label class="text-sm font-bold text-slate-600">เลขที่บ้าน</label>
-                    <input type="text" id="regHouse" placeholder="เช่น 125/1" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key === 'Enter') window.submitRegister()">
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-sm text-slate-400 shrink-0">125/</span>
+                        <input type="text" id="regHouse" placeholder="เช่น 382" class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key === 'Enter') window.submitRegister()">
+                    </div>
                     <p id="regHouseError" class="text-xs text-red-500 mt-1 mb-3 hidden">ไม่พบเลขที่บ้านนี้ในระบบ กรุณาตรวจสอบอีกครั้ง</p>
                     <label class="text-sm font-bold text-slate-600 mt-3 block">ชื่อผู้จอง</label>
                     <input type="text" id="regCustomerName" placeholder="ชื่อ-นามสกุล" class="w-full border border-slate-200 rounded-xl px-4 py-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key === 'Enter') window.submitRegister()">
@@ -1682,7 +1685,11 @@
         };
 
         window.submitRegister = async function() {
-            const house = document.getElementById('regHouse').value.trim();
+            let house = document.getElementById('regHouse').value.trim();
+            // The input only asks for the number after "125/" (shown as a fixed prefix) - strip
+            // any "125/" the user might still type out of habit, then always add it back once,
+            // so the lookup key always matches window.houseOwnerDB's "125/xxx" format.
+            house = `125/${house.replace(/^125\/?/, '')}`;
             const errEl = document.getElementById('regHouseError');
             if (!house || !window.houseOwnerDB[house]) {
                 if (errEl) errEl.classList.remove('hidden');
