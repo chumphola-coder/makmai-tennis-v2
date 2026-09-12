@@ -2336,14 +2336,13 @@
             // about the browser's own bottom toolbar overlapping the page, so the button can still end
             // up partially hidden behind it. Instead, measure the real visible viewport (visualViewport
             // accounts for mobile browser chrome) and scroll by the exact amount needed, plus a margin.
+            // getBoundingClientRect() already forces a synchronous layout, so no need to wait a frame.
             if (wasHidden) {
-                requestAnimationFrame(() => {
-                    const rect = bar.getBoundingClientRect();
-                    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-                    const margin = 24;
-                    const overflow = rect.bottom - (viewportHeight - margin);
-                    if (overflow > 0) window.scrollBy({ top: overflow, behavior: 'smooth' });
-                });
+                const rect = bar.getBoundingClientRect();
+                const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                const margin = 24;
+                const overflow = rect.bottom - (viewportHeight - margin);
+                if (overflow > 0) window.scrollBy({ top: overflow, behavior: 'smooth' });
             }
         };
 
