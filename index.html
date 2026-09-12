@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>Makmai Tennis Club - Booking System (Online)</title>
     <meta name="description" content="ระบบจองคอร์ตเทนนิสหมู่บ้านแมกไม้ (Online Cloud Version)">
+    <!-- Everything lives in this one HTML file with no separate cache-busted JS filename, so
+    mobile browsers can keep serving a stale cached copy for a long time after a deploy - force
+    revalidation on every load instead of relying on users to manually hard-refresh. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     
     <!-- Libraries CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
