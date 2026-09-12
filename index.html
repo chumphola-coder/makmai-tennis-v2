@@ -1615,7 +1615,14 @@
                 } else {
                     window.APP.role = 'unregistered';
                 }
-            } catch (e) { console.error('role load failed', e); window.APP.role = 'unregistered'; }
+            } catch (e) {
+                // A network/read failure here is NOT the same as "not registered" - never fall
+                // back to showing the register form on error, or an already-approved
+                // resident/admin could be tricked into re-registering (and typo-ing their own
+                // details) just because of a transient connection hiccup.
+                console.error('role load failed', e);
+                window.APP.role = 'error';
+            }
             window.__perfMark('role_loaded');
             window.applyResidentBookingLock();
 
@@ -1629,6 +1636,7 @@
 
             if (window.APP.role === 'unregistered') window.openRegisterModal();
             else if (window.APP.role === 'pending') window.showAlert("บัญชีของคุณรอผู้ดูแลอนุมัติ", "warning");
+            else if (window.APP.role === 'error') window.showAlert("⚠️ ไม่สามารถโหลดข้อมูลบัญชีได้ (เครือข่ายขัดข้อง) กรุณารีเฟรชหน้าเว็บแล้วลองเข้าสู่ระบบใหม่อีกครั้ง ไม่ต้องลงทะเบียนซ้ำ", "danger");
 
             // Shared house customerName/phone prefill is a convenience only - fetch it in the
             // background so it never blocks the schedule/list from rendering above. This was the
