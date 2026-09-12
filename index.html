@@ -2662,13 +2662,18 @@
         // just jumps the schedule grid below to that booking's date/court - it does NOT also pop
         // open the slip modal, since checking a slip is a separate action (the photo icon).
         // On mobile the schedule/list panels are tabs (only one visible at a time), so also switch
-        // to the schedule tab or the date/court change would happen off-screen unseen.
+        // to the schedule tab or the date/court change would happen off-screen unseen. The grid can
+        // be taller than one screen (15 hour rows), so scroll the specific highlighted tile itself
+        // into view rather than just the panel - otherwise the target row can still land below the fold.
         window.jumpToScheduleForBooking = function(id) {
             const b = window.allBookingsCache.find(x => String(x.id) === String(id)); if (!b) return;
-            const fp = document.getElementById('scheduleDateInput')?._flatpickr;
-            if (fp) fp.setDate(b.date, true);
             window.setCourtFilter(b.court);
+            window.syncScheduleToBooking(b, false);
             window.setRightTab('schedule');
+            setTimeout(() => {
+                const tile = document.querySelector('.ring-amber-400');
+                if (tile) tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 50);
         };
 
         window.deleteBookingFromModal = async function() {
