@@ -1714,6 +1714,12 @@
                     houseNumber: house,
                     ownerName: window.houseOwnerDB[house] || '',
                     displayName: window.APP.displayName || '',
+                    // LINE's own displayName isn't always available (e.g. if the LINE profile
+                    // scope came back empty), and it's just a generic nickname anyway - the name
+                    // and phone number the resident actually typed here is far more useful for an
+                    // admin who needs to identify or contact this specific registrant.
+                    customerName: customerName,
+                    phoneNumber: phoneNumber,
                     status: 'pending',
                     createdAt: Date.now(),
                 });
@@ -1794,7 +1800,7 @@
             const pendingList = pending.length
                 ? pending.map(r => `
                     <div class="flex items-center justify-between gap-2 border-b border-slate-100 py-2">
-                        <div class="text-sm"><b>${window.escapeHtml(r.houseNumber)}</b> — ${window.escapeHtml(r.ownerName || '')}<div class="text-[11px] text-slate-400">${window.escapeHtml(r.displayName || '')} · ${window.escapeHtml(r.uid)}</div></div>
+                        <div class="text-sm"><b>${window.escapeHtml(r.houseNumber)}</b> — ${window.escapeHtml(r.ownerName || '')}<div class="text-[11px] text-slate-400">${window.escapeHtml(r.customerName || r.displayName || 'ไม่ทราบชื่อผู้จอง')}${r.phoneNumber ? ' · โทร ' + window.escapeHtml(r.phoneNumber) : ''}</div></div>
                         <div class="flex gap-2">
                             <button onclick="window.approveResident('${r.uid}')" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">อนุมัติ</button>
                             <button onclick="window.rejectResident('${r.uid}')" class="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold">ปฏิเสธ</button>
@@ -1805,7 +1811,7 @@
             const approvedList = approved.length
                 ? approved.map(r => `
                     <div class="flex items-center justify-between gap-2 border-b border-slate-100 py-2">
-                        <div class="text-sm"><b>${window.escapeHtml(r.houseNumber)}</b> — ${window.escapeHtml(r.ownerName || '')}<div class="text-[11px] text-slate-400">${window.escapeHtml(r.displayName || '')}</div></div>
+                        <div class="text-sm"><b>${window.escapeHtml(r.houseNumber)}</b> — ${window.escapeHtml(r.ownerName || '')}<div class="text-[11px] text-slate-400">${window.escapeHtml(r.customerName || r.displayName || '')}${r.phoneNumber ? ' · โทร ' + window.escapeHtml(r.phoneNumber) : ''}</div></div>
                         ${adminUids.has(r.uid)
                             ? '<span class="px-3 py-1.5 bg-slate-100 text-slate-400 rounded-lg text-xs font-bold">แอดมินอยู่แล้ว</span>'
                             : `<button onclick="window.promoteToAdmin('${r.uid}')" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold">⬆️ ตั้งเป็นแอดมิน</button>`}
