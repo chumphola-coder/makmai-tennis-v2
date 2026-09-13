@@ -1863,6 +1863,8 @@
 
         window.rejectResident = async function(uid) {
             try {
+                // Best-effort rejection notice - sent before delete so the uid/push target is still resolvable.
+                await window.notifyResidentViaLine(uid, "❌ คำขอลงทะเบียนของคุณไม่ได้รับการอนุมัติ\nกรุณาตรวจสอบเลขที่บ้านที่กรอกแล้วลงทะเบียนใหม่อีกครั้ง หรือติดต่อนิติบุคคลหมู่บ้านแมกไม้หากมีข้อสงสัย");
                 await deleteDoc(doc(db, 'residents', uid));
                 document.getElementById('adminResidentsModal')?.remove();
                 window.openAdminResidents();
