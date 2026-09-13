@@ -3546,15 +3546,17 @@
         };
 
         window.autoDeletePastUnpaid = async function() {
-            const nowStr = `${window.getThailandDate()} ${window.getThailandHour().toString().padStart(2,'0')}:00`;
             const now = Date.now();
             const EXPIRY_MS = 4 * 60 * 60 * 1000; // unpaid bookings expire 4h after they were created
             for (const b of window.allBookingsCache) {
                 if (window.hasSlip(b) || b.isCustomerProfile) continue;
-                const playPassed = `${b.date} ${(b.time||"00:00").split(':')[0].padStart(2,'0')}:00` <= nowStr;
+                // Always give the full 4 hours from creation, regardless of how soon play time is -
+                // a walk-in booked for a slot starting within the next 4 hours (or even the current
+                // hour) must still get the full window, otherwise walk-ins could never realistically
+                // upload a slip in time and would always get deleted almost immediately.
                 const created = b.createdAt || b.timestamp || 0;
                 const heldTooLong = created && (now - created > EXPIRY_MS);
-                if (playPassed || heldTooLong) {
+                if (heldTooLong) {
                     try { await deleteDoc(doc(collectionRef, String(b.id))); } catch(e) {}
                 }
             }
