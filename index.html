@@ -584,6 +584,7 @@
                 <div class="flex flex-wrap justify-center gap-2 sm:gap-3 w-full">
                     <button onclick="window.closeModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">ปิดหน้าต่าง</button>
                     <button id="btnConfirmPaymentModal" onclick="window.confirmPaymentInModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base hidden">🔍 ตรวจสลิปแล้ว กดยืนยัน</button>
+                    <button id="btnUnconfirmPaymentModal" onclick="window.unconfirmPaymentInModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base hidden">↩️ ยกเลิกการยืนยัน</button>
                     <button id="btnChangeSlipModal" onclick="window.addMoreSlipInModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-50 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">+ เพิ่มสลิปใหม่</button>
                     <button id="btnRemoveSlipModal" onclick="window.removeCurrentSlipInModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-red-500 hover:bg-red-400 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">ลบรูปนี้</button>
                     <button id="btnDeleteBookingModal" onclick="window.deleteBookingFromModal()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-red-800 hover:bg-red-700 text-white rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 cursor-pointer text-sm md:text-base">🗑️ ลบการจองนี้</button>
@@ -2662,7 +2663,18 @@
 
                 if (btnConfirm) {
                     // Only admin can confirm payment, and only while it isn't already confirmed.
-                    btnConfirm.classList.toggle('hidden', !(window.APP.role === 'admin' && b.status !== 'confirmed'));
+                    // A missing `status` field means an old imported record (treated as already
+                    // confirmed everywhere else - e.g. the schedule-grid badge) - the button must
+                    // stay hidden for those too, not just literal status:'confirmed' docs.
+                    const alreadyConfirmed = b.status === 'confirmed' || !b.status;
+                    btnConfirm.classList.toggle('hidden', !(window.APP.role === 'admin' && !alreadyConfirmed));
+                }
+                const btnUnconfirm = document.getElementById('btnUnconfirmPaymentModal');
+                if (btnUnconfirm) {
+                    // Only for bookings an admin EXPLICITLY confirmed (b.status === 'confirmed') - old
+                    // imported records with no status field are intentionally left alone (nothing to
+                    // revert, and the manual documents them as permanently treated as confirmed).
+                    btnUnconfirm.classList.toggle('hidden', !(window.APP.role === 'admin' && b.status === 'confirmed'));
                 }
                 const btnDeleteModal = document.getElementById('btnDeleteBookingModal');
                 if (btnDeleteModal) btnDeleteModal.classList.toggle('hidden', isP && !window.adminMode);
@@ -2744,6 +2756,7 @@
                 b.confirmedAt = Date.now();
                 await setDoc(doc(collectionRef, String(b.id)), b);
                 document.getElementById('btnConfirmPaymentModal')?.classList.add('hidden');
+                document.getElementById('btnUnconfirmPaymentModal')?.classList.remove('hidden');
                 window.showAlert("ยืนยันการชำระเรียบร้อย", "success");
 
                 const dateTxt = `${b.date} เวลา ${b.time || ''}`;
@@ -2753,6 +2766,31 @@
                 );
             } catch (e) {
                 window.showAlert("ยืนยันการชำระไม่สำเร็จ: " + e.message, "danger");
+            }
+        };
+
+        // Undo an accidental confirm without touching the slip images (unlike removeSlip's
+        // auto-revert, which only happens as a side-effect of deleting the last slip) - for when
+        // admin simply clicked the wrong row/button and the slip itself was never actually wrong.
+        window.unconfirmPaymentInModal = async function() {
+            if (window.APP.role !== 'admin') return window.showAlert("เฉพาะผู้ดูแลเท่านั้น", "danger");
+            const id = window.currentViewingSlipId;
+            const b = window.allBookingsCache.find(x => String(x.id) === String(id));
+            if (!b || b.status !== 'confirmed') return;
+
+            const confirmed = await window.customConfirm("ยกเลิกการยืนยันการชำระเงินนี้ และเปลี่ยนสถานะกลับเป็น 'รอตรวจสอบ'?", "ยกเลิกการยืนยัน", "danger");
+            if (!confirmed) return;
+
+            try {
+                b.status = 'pending';
+                delete b.confirmedBy;
+                delete b.confirmedAt;
+                await setDoc(doc(collectionRef, String(b.id)), b);
+                document.getElementById('btnUnconfirmPaymentModal')?.classList.add('hidden');
+                document.getElementById('btnConfirmPaymentModal')?.classList.remove('hidden');
+                window.showAlert("ยกเลิกการยืนยันเรียบร้อย", "success");
+            } catch (e) {
+                window.showAlert("ยกเลิกการยืนยันไม่สำเร็จ: " + e.message, "danger");
             }
         };
 
