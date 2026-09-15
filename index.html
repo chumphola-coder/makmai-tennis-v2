@@ -2793,6 +2793,14 @@
                     delete b.confirmedBy;
                     delete b.confirmedAt;
                 }
+                // Bug fix: autoDeletePastUnpaid() expires bookings 4h after their ORIGINAL createdAt.
+                // A booking that had a slip for a long time (possibly already admin-confirmed) is
+                // almost always already past that original 4h window - without resetting createdAt
+                // here, the very next auto-delete check would wipe out the whole booking instead of
+                // just clearing the slip, since it now looks like a long-overdue unpaid booking.
+                if (b.slips.length === 0) {
+                    b.createdAt = Date.now();
+                }
 
                 await setDoc(doc(collectionRef, String(b.id)), b); 
                 
